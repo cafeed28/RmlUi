@@ -233,7 +233,12 @@ void TableGrid::PushRow(Element* element_row, ElementList cell_elements)
 		}
 	}
 
-	rows.push_back(Row{ element_row, nullptr, 0 });
+	// Visual Studio 2015 says: error C2440: 'initializing': cannot convert from 'initializer list' to 'Rml::TableGrid::Row'
+	// rows.push_back(Row{ element_row, nullptr, 0 });
+
+	Row row;
+	row.element_row = element_row;
+	rows.push_back(row);
 
 	const int num_cells_spanning_this_row = (int)open_cells.size();
 

@@ -133,14 +133,15 @@ void ElementStyle::TransitionPropertyChanges(Element* element, PropertyIdSet& pr
 		{
 			static const PropertyDictionary empty_properties;
 
-			auto add_transition = [&](const Transition& transition) {
-				bool transition_added = false;
-				const Property* start_value = GetProperty(transition.id, element, inline_properties, old_definition);
-				const Property* target_value = GetProperty(transition.id, element, empty_properties, new_definition);
-				if (start_value && target_value && (*start_value != *target_value))
-					transition_added = element->StartTransition(transition, *start_value, *target_value);
-				return transition_added;
-			};
+			// Visual Studio 2015 opinion: fatal error C1001: An internal error has occurred in the compiler
+			// auto add_transition = [&](const Transition& transition) {
+			// 	bool transition_added = false;
+			// 	const Property* start_value = GetProperty(transition.id, element, inline_properties, old_definition);
+			// 	const Property* target_value = GetProperty(transition.id, element, empty_properties, new_definition);
+			// 	if (start_value && target_value && (*start_value != *target_value))
+			// 		transition_added = element->StartTransition(transition, *start_value, *target_value);
+			// 	return transition_added;
+			// };
 
 			if (transition_list.all)
 			{
@@ -148,7 +149,14 @@ void ElementStyle::TransitionPropertyChanges(Element* element, PropertyIdSet& pr
 				for (auto it = properties.begin(); it != properties.end(); )
 				{
 					transition.id = *it;
-					if (add_transition(transition))
+					
+					bool transition_added = false;
+					const Property* start_value = GetProperty(transition.id, element, inline_properties, old_definition);
+					const Property* target_value = GetProperty(transition.id, element, empty_properties, new_definition);
+					if (start_value && target_value && (*start_value != *target_value))
+						transition_added = element->StartTransition(transition, *start_value, *target_value);
+
+					if (transition_added)
 						it = properties.Erase(it);
 					else
 						++it;
@@ -160,7 +168,13 @@ void ElementStyle::TransitionPropertyChanges(Element* element, PropertyIdSet& pr
 				{
 					if (properties.Contains(transition.id))
 					{
-						if (add_transition(transition))
+						bool transition_added = false;
+						const Property* start_value = GetProperty(transition.id, element, inline_properties, old_definition);
+						const Property* target_value = GetProperty(transition.id, element, empty_properties, new_definition);
+						if (start_value && target_value && (*start_value != *target_value))
+							transition_added = element->StartTransition(transition, *start_value, *target_value);
+
+						if (transition_added)
 							properties.Erase(transition.id);
 					}
 				}

@@ -1786,7 +1786,11 @@ void Element::OnPropertyChange(const PropertyIdSet& changed_properties)
 			// as affecting layout. However, when absolutely positioned elements with both left & right, or top & bottom are set to definite values,
 			// they affect the size of the element and thereby also the layout. This layout-dirtying condition needs to be registered manually.
 			using namespace Style;
-			const ComputedValues& computed = GetComputedValues();
+			// Visual Studio 2015: error C2872: 'ComputedValues': ambiguous symbol
+			// could be 'Rml::Style::ComputedValues Rml::ComputedValues'
+			// or       'Rml::Style::ComputedValues'
+			// const ComputedValues& computed = GetComputedValues();
+			const Rml::Style::ComputedValues& computed = GetComputedValues();
 			const bool absolutely_positioned = (computed.position() == Position::Absolute || computed.position() == Position::Fixed);
 			const bool sized_width =
 				(computed.width().type == Width::Auto && computed.left().type != Left::Auto && computed.right().type != Right::Auto);

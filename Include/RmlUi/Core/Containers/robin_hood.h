@@ -605,7 +605,9 @@ struct pair {
         , second(std::forward<U2>(b)) {}
 
     template <typename... U1, typename... U2>
-    constexpr pair(
+    // Visual Studio 2015 moment
+    // error C2476: 'constexpr' constructor does not initialize all members
+    /*constexpr*/ pair(
         std::piecewise_construct_t /*unused*/, std::tuple<U1...> a,
         std::tuple<U2...> b) noexcept(noexcept(pair(std::declval<std::tuple<U1...>&>(),
                                                     std::declval<std::tuple<U2...>&>(),
