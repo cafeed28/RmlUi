@@ -86,6 +86,7 @@ The `<textarea>` and `<input type="text">` elements have been improved in severa
 - Logging a message without an installed system interface will now be written to cout instead of crashing the application.
 - Fixed a crash when the debugger plugin was shutdown manually. #322 #323 (thanks @LoneBoco)
 - Fix compilation on Emscripten CI. #335 (thanks @hobyst)
+- Fix compilation on Visual Studio 2015 toolset (@cafeed28)
 
 ### Breaking changes
 
@@ -93,7 +94,7 @@ The `<textarea>` and `<input type="text">` elements have been improved in severa
 - Removed the boolean result returned from `Rml::Debugger::Shutdown()`.
 - RCSS selectors will no longer match text elements, structural pseudo selectors are no longer affected by the element's display property.
 - Data binding: The signature of transform functions has been changed from `Variant& first_argument_and_result, const VariantList& other_arguments -> bool success` to `const VariantList& arguments -> Variant result`.
-- Renamed `Rml::Assert()` to `Rml::RmlUiAssert()` for compatibility with Source Engine (Valve defines macro Assert)
+- Renamed `Rml::Assert()` to `Rml::RmlUiAssert()` for compatibility with Source Engine (Valve defines macro Assert) (@cafeed28)
 
 
 ## RmlUi 4.4

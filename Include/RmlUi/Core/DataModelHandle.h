@@ -49,7 +49,7 @@ public:
 	void DirtyVariable(const String& variable_name);
 	void DirtyAllVariables();
 
-	explicit operator bool() { return model; }
+	explicit operator bool() { return !!model; }
 
 private:
 	DataModel* model;
