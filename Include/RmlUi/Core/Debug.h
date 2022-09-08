@@ -55,7 +55,7 @@
 
 namespace Rml {
 
-bool RMLUICORE_API Assert(const char* message, const char* file, int line);
+bool RMLUICORE_API RmlUiAssert(const char* message, const char* file, int line);
 
 }
 
@@ -74,7 +74,7 @@ bool RMLUICORE_API Assert(const char* message, const char* file, int line);
 #define RMLUI_ASSERT(x) \
 if (!(x)) \
 { \
-	if (!(::Rml::Assert("RMLUI_ASSERT("#x")", __FILE__, __LINE__ ))) \
+	if (!(::Rml::RmlUiAssert("RMLUI_ASSERT("#x")", __FILE__, __LINE__ ))) \
 	{ \
 		RMLUI_BREAK; \
 	} \
@@ -82,18 +82,18 @@ if (!(x)) \
 #define RMLUI_ASSERTMSG(x, m)	\
 if (!(x)) \
 { \
-	if (!(::Rml::Assert(m, __FILE__, __LINE__ ))) \
+	if (!(::Rml::RmlUiAssert(m, __FILE__, __LINE__ ))) \
 	{ \
 		RMLUI_BREAK; \
 	} \
 }
 #define RMLUI_ERROR \
-if (!(::Rml::Assert("RMLUI_ERROR", __FILE__, __LINE__))) \
+if (!(::Rml::RmlUiAssert("RMLUI_ERROR", __FILE__, __LINE__))) \
 { \
 	RMLUI_BREAK; \
 }
 #define RMLUI_ERRORMSG(m) \
-if (!(::Rml::Assert(m, __FILE__, __LINE__))) \
+if (!(::Rml::RmlUiAssert(m, __FILE__, __LINE__))) \
 { \
 	RMLUI_BREAK; \
 }

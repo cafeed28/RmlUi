@@ -93,6 +93,7 @@ The `<textarea>` and `<input type="text">` elements have been improved in severa
 - Removed the boolean result returned from `Rml::Debugger::Shutdown()`.
 - RCSS selectors will no longer match text elements, structural pseudo selectors are no longer affected by the element's display property.
 - Data binding: The signature of transform functions has been changed from `Variant& first_argument_and_result, const VariantList& other_arguments -> bool success` to `const VariantList& arguments -> Variant result`.
+- Renamed `Rml::Assert()` to `Rml::RmlUiAssert()` for compatibility with Source Engine (Valve defines macro Assert)
 
 
 ## RmlUi 4.4

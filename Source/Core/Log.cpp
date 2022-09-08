@@ -93,7 +93,7 @@ void Log::ParseError(const String& filename, int line_number, const char* fmt, .
 		Message(Log::LT_ERROR, "%s: %s", filename.c_str(), buffer);
 }
 
-bool Assert(const char* msg, const char* file, int line)
+bool RmlUiAssert(const char* msg, const char* file, int line)
 {
 	String message = CreateString(1024, "%s\n%s:%d", msg, file, line);
 
