@@ -64,11 +64,25 @@ Rml::String PlatformExtensions::FindSamplesRoot()
 		executable_file_name[0] = 0;
 	}
 
+	char cwd[MAX_PATH];
+	if (!GetCurrentDirectoryA(MAX_PATH, cwd))
+	{
+		cwd[0] = 0;
+	}
+
 	Rml::String executable_path(executable_file_name);
 	executable_path = executable_path.substr(0, executable_path.rfind('\\') + 1);
 
+	Rml::String cwd_path(cwd);
+	cwd_path = cwd_path + '\\';
+
 	// We assume we have found the correct path if we can find the lookup file from it
 	const char* lookup_file = "assets\\rml.rcss";
+
+	if (PathFileExistsA(Rml::String(cwd_path + lookup_file).c_str()))
+	{
+		return cwd_path;
+	}
 
 	for (const char* relative_path : candidate_paths)
 	{
