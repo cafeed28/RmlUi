@@ -1,6 +1,6 @@
-#===================================
+# ===================================
 # Build script for RmlUi ===========
-#===================================
+# ===================================
 
 cmake_minimum_required(VERSION 3.5)
 
@@ -12,23 +12,24 @@ if(APPLE)
 	endif(IOS_PLATFORM)
 
 	option(BUILD_UNIVERSAL_BINARIES "Build universal binaries for all architectures supported" ON)
-	if (NOT CMAKE_OSX_ARCHITECTURES AND BUILD_UNIVERSAL_BINARIES)
+
+	if(NOT CMAKE_OSX_ARCHITECTURES AND BUILD_UNIVERSAL_BINARIES)
 		if(IOS)
 			# set the architecture for iOS
-			if (${IOS_PLATFORM} STREQUAL "OS")
-				set (IOS_ARCH armv6 armv7 armv7s arm64)
-				set (CMAKE_OSX_ARCHITECTURES ${IOS_ARCH} CACHE STRING  "Build architecture for iOS")
-			else (${IOS_PLATFORM} STREQUAL "OS")
-				set (IOS_ARCH x86_64)
-				set (CMAKE_OSX_ARCHITECTURES ${IOS_ARCH} CACHE STRING  "Build architecture for iOS Simulator")
-			endif (${IOS_PLATFORM} STREQUAL "OS")
+			if(${IOS_PLATFORM} STREQUAL "OS")
+				set(IOS_ARCH armv6 armv7 armv7s arm64)
+				set(CMAKE_OSX_ARCHITECTURES ${IOS_ARCH} CACHE STRING "Build architecture for iOS")
+			else(${IOS_PLATFORM} STREQUAL "OS")
+				set(IOS_ARCH x86_64)
+				set(CMAKE_OSX_ARCHITECTURES ${IOS_ARCH} CACHE STRING "Build architecture for iOS Simulator")
+			endif(${IOS_PLATFORM} STREQUAL "OS")
 
 		else(IOS)
 			# set the architectures for OS X
-			set (OSXI_ARCH x86_64)
-			set (CMAKE_OSX_ARCHITECTURES ${OSXI_ARCH} CACHE STRING  "Build architecture for OS X universal binaries")
+			set(OSXI_ARCH x86_64)
+			set(CMAKE_OSX_ARCHITECTURES ${OSXI_ARCH} CACHE STRING "Build architecture for OS X universal binaries")
 		endif(IOS)
-	endif (NOT CMAKE_OSX_ARCHITECTURES AND BUILD_UNIVERSAL_BINARIES)
+	endif(NOT CMAKE_OSX_ARCHITECTURES AND BUILD_UNIVERSAL_BINARIES)
 endif(APPLE)
 
 if(COMMAND cmake_policy)
@@ -40,15 +41,17 @@ endif(COMMAND cmake_policy)
 # library files can simply be copied over into the end-user's application
 # bundle or framework bundle. No mucking around with install_name_tool.
 #
-# 	See also:
+# See also:
 # cmake --help-policy cmp0042
 # http://www.kitware.com/blog/home/post/510
 if(POLICY CMP0042)
 	cmake_policy(SET CMP0042 NEW)
 endif(POLICY CMP0042)
-if (POLICY CMP0072)
-	cmake_policy (SET CMP0072 NEW)
+
+if(POLICY CMP0072)
+	cmake_policy(SET CMP0072 NEW)
 endif(POLICY CMP0072)
+
 if(POLICY CMP0074)
 	cmake_policy(SET CMP0074 NEW)
 endif(POLICY CMP0074)
@@ -85,19 +88,17 @@ include(GNUInstallDirs)
 # Search in the 'cmake' directory for additional CMake modules.
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake;${PROJECT_SOURCE_DIR}/CMake/Modules)
 
-#===================================
+# ===================================
 # Environment tests ================
-#===================================
-
+# ===================================
 include(TestForANSIForScope)
 include(TestForANSIStreamHeaders)
 include(TestForSTDNamespace)
 
-#===================================
+# ===================================
 # Provide hints as to where depends=
 # might be found                   =
-#===================================
-
+# ===================================
 if(NOT DEFINED ENV{FREETYPE_DIR})
 	set(ENV{FREETYPE_DIR} "${PROJECT_SOURCE_DIR}/Dependencies")
 endif()
@@ -130,10 +131,9 @@ if(NOT DEFINED ENV{LUNASVG_DIR})
 	set(ENV{LUNASVG_DIR} "${PROJECT_SOURCE_DIR}/Dependencies/lunasvg")
 endif()
 
-#===================================
+# ===================================
 # Plaform specific global hacks ====
-#===================================
-
+# ===================================
 if(APPLE)
 	# Disables naked builtins from AssertMacros.h which
 	# This prevents naming collisions such as those from the check()
@@ -141,10 +141,9 @@ if(APPLE)
 	add_definitions(-D__ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES=0)
 endif(APPLE)
 
-#===================================
+# ===================================
 # Build options ====================
-#===================================
-
+# ===================================
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING
 		"Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel."
@@ -157,7 +156,7 @@ endif(NOT IOS)
 
 option(BUILD_LUA_BINDINGS "Build Lua bindings" OFF)
 
-if (BUILD_LUA_BINDINGS)
+if(BUILD_LUA_BINDINGS)
 	option(BUILD_LUA_BINDINGS_FOR_LUAJIT "Build Lua bindings using luajit" OFF)
 endif()
 
@@ -196,6 +195,7 @@ if(APPLE)
 		if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
 			message(FATAL_ERROR "You should use Xcode generator with BUILD_FRAMEWORK enabled")
 		endif()
+
 		if(NOT BUILD_SHARED_LIBS)
 			message(FATAL_ERROR "BUILD_SHARED_LIBS must be ON with BUILD_FRAMEWORK enabled")
 		endif()
@@ -207,6 +207,7 @@ else(APPLE)
 endif(APPLE)
 
 option(NO_FONT_INTERFACE_DEFAULT "Do not include the default font engine in the build. Allows building without the FreeType dependency, but a custom font engine must be created and set." OFF)
+
 if(NO_FONT_INTERFACE_DEFAULT)
 	list(APPEND CORE_PRIVATE_DEFS RMLUI_NO_FONT_INTERFACE_DEFAULT)
 endif()
@@ -225,7 +226,8 @@ if(NOT BUILD_SHARED_LIBS)
 endif()
 
 option(NO_THIRDPARTY_CONTAINERS "Only use standard library containers." OFF)
-if( NO_THIRDPARTY_CONTAINERS )
+
+if(NO_THIRDPARTY_CONTAINERS)
 	list(APPEND CORE_PUBLIC_DEFS -DRMLUI_NO_THIRDPARTY_CONTAINERS)
 	message("-- No third-party containers will be used: Make sure to #define RMLUI_NO_THIRDPARTY_CONTAINERS before including RmlUi in your project.")
 endif()
@@ -233,24 +235,26 @@ endif()
 option(CUSTOM_CONFIGURATION "Customize RmlUi configuration files for overriding the default configuration and types." OFF)
 
 set(CUSTOM_CONFIGURATION_FILE "" CACHE STRING "Custom configuration file to be included in place of <RmlUi/Config/Config.h>.")
-if( CUSTOM_CONFIGURATION AND CUSTOM_CONFIGURATION_FILE )
+
+if(CUSTOM_CONFIGURATION AND CUSTOM_CONFIGURATION_FILE)
 	list(APPEND CORE_PUBLIC_DEFS -DRMLUI_CUSTOM_CONFIGURATION_FILE="${CUSTOM_CONFIGURATION_FILE}")
 	message("-- Including ${CUSTOM_CONFIGURATION_FILE} instead of <RmlUi/Config/Config.h>")
-endif ()
+endif()
 
 set(CUSTOM_INCLUDE_DIRS "" CACHE STRING "Extra include directories (use with CUSTOM_CONFIGURATION_FILE).")
-if( CUSTOM_CONFIGURATION AND CUSTOM_INCLUDE_DIRS )
+
+if(CUSTOM_CONFIGURATION AND CUSTOM_INCLUDE_DIRS)
 	include_directories(${CUSTOM_INCLUDE_DIRS})
-endif ()
+endif()
 
 set(CUSTOM_LINK_LIBRARIES "" CACHE STRING "Extra link libraries (use with CUSTOM_CONFIGURATION_FILE).")
 
-if( CUSTOM_CONFIGURATION )
-	mark_as_advanced( CLEAR CUSTOM_CONFIGURATION_FILE CUSTOM_INCLUDE_DIRS CUSTOM_LINK_LIBRARIES )
+if(CUSTOM_CONFIGURATION)
+	mark_as_advanced(CLEAR CUSTOM_CONFIGURATION_FILE CUSTOM_INCLUDE_DIRS CUSTOM_LINK_LIBRARIES)
 else()
-	mark_as_advanced( FORCE CUSTOM_CONFIGURATION_FILE CUSTOM_INCLUDE_DIRS CUSTOM_LINK_LIBRARIES )
+	mark_as_advanced(FORCE CUSTOM_CONFIGURATION_FILE CUSTOM_INCLUDE_DIRS CUSTOM_LINK_LIBRARIES)
 
-	if( CUSTOM_CONFIGURATION_FILE OR CUSTOM_INCLUDE_DIRS OR CUSTOM_LINK_LIBRARIES )
+	if(CUSTOM_CONFIGURATION_FILE OR CUSTOM_INCLUDE_DIRS OR CUSTOM_LINK_LIBRARIES)
 		message("-- CUSTOM_CONFIGURATION disabled, but custom configuration variables are set. They will have no effect.")
 	endif()
 endif()
@@ -262,17 +266,19 @@ function(EnableConfigurationType name enable)
 	else()
 		list(REMOVE_ITEM CMAKE_CONFIGURATION_TYPES "${name}")
 	endif()
+
 	set(CMAKE_CONFIGURATION_TYPES "${CMAKE_CONFIGURATION_TYPES}" CACHE STRING "List of configurations to enable" FORCE)
 endfunction()
 
 option(RMLUI_TRACY_PROFILING "Enable profiling with Tracy. Source files can be placed in Dependencies/tracy." OFF)
-if( RMLUI_TRACY_PROFILING )
+
+if(RMLUI_TRACY_PROFILING)
 	option(RMLUI_TRACY_MEMORY_PROFILING "Overload global operator new/delete to track memory allocations in Tracy." ON)
 
-	if( CMAKE_CONFIGURATION_TYPES )
+	if(CMAKE_CONFIGURATION_TYPES)
 		option(RMLUI_TRACY_CONFIGURATION "Enable a separate Tracy configuration type for multi-config generators such as Visual Studio, otherwise enable Tracy in all configurations." ON)
 
-		if( RMLUI_TRACY_CONFIGURATION )
+		if(RMLUI_TRACY_CONFIGURATION)
 			EnableConfigurationType(Tracy ON)
 			list(APPEND CMAKE_MAP_IMPORTED_CONFIG_TRACY Release)
 			set(CMAKE_C_FLAGS_TRACY "${CMAKE_C_FLAGS_RELEASE}")
@@ -298,7 +304,7 @@ if( RMLUI_TRACY_PROFILING )
 			"(b) Tracy can be found as a config package, or (c) Tracy source files are located in 'Dependencies/Tracy'.")
 	endif()
 
-	if( CMAKE_CONFIGURATION_TYPES AND RMLUI_TRACY_CONFIGURATION )
+	if(CMAKE_CONFIGURATION_TYPES AND RMLUI_TRACY_CONFIGURATION)
 		message("-- Tracy profiling enabled in configuration 'Tracy'.")
 		set(RMLUI_TRACY_CONDITION "$<CONFIG:Tracy>")
 	else()
@@ -308,10 +314,11 @@ if( RMLUI_TRACY_PROFILING )
 
 	list(APPEND CORE_PUBLIC_LINK_LIBS "$<${RMLUI_TRACY_CONDITION}:Tracy::TracyClient>")
 	list(APPEND CORE_PUBLIC_DEFS "$<${RMLUI_TRACY_CONDITION}:RMLUI_TRACY_PROFILING>")
+
 	if(RMLUI_TRACY_MEMORY_PROFILING)
 		list(APPEND CORE_PRIVATE_DEFS "$<${RMLUI_TRACY_CONDITION}:RMLUI_TRACY_MEMORY_PROFILING>")
 	endif()
-elseif( CMAKE_CONFIGURATION_TYPES )
+elseif(CMAKE_CONFIGURATION_TYPES)
 	EnableConfigurationType(Tracy OFF)
 endif()
 
@@ -319,6 +326,7 @@ option(ENABLE_LOTTIE_PLUGIN "Enable plugin for Lottie animations. Requires the r
 option(ENABLE_SVG_PLUGIN "Enable plugin for SVG images. Requires the lunasvg library." OFF)
 
 option(DISABLE_RTTI_AND_EXCEPTIONS "Build with rtti and exceptions disabled." OFF)
+
 if(DISABLE_RTTI_AND_EXCEPTIONS)
 	list(APPEND CORE_PUBLIC_DEFS -DRMLUI_USE_CUSTOM_RTTI)
 	message("-- C++ RTTI and exceptions will be disabled: Make sure to #define RMLUI_USE_CUSTOM_RTTI before including RmlUi in your project.")
@@ -326,9 +334,10 @@ endif()
 
 option(ENABLE_PRECOMPILED_HEADERS "Enable precompiled headers" ON)
 set(PRECOMPILED_HEADERS_ENABLED OFF)
-if (ENABLE_PRECOMPILED_HEADERS AND (CMAKE_VERSION VERSION_LESS 3.16.0))
+
+if(ENABLE_PRECOMPILED_HEADERS AND(CMAKE_VERSION VERSION_LESS 3.16.0))
 	message("-- Could not enable precompiled headers. Need CMake version 3.16.0 or greater.")
-elseif (ENABLE_PRECOMPILED_HEADERS)
+elseif(ENABLE_PRECOMPILED_HEADERS)
 	set(PRECOMPILED_HEADERS_ENABLED ON)
 endif()
 
@@ -345,6 +354,7 @@ macro(add_common_target_options NAME)
 	else()
 		target_compile_features(${NAME} PUBLIC cxx_std_14)
 	endif()
+
 	set_target_properties(${NAME} PROPERTIES CXX_EXTENSIONS OFF)
 
 	# Compiler warnings
@@ -355,6 +365,14 @@ macro(add_common_target_options NAME)
 			target_compile_options(${NAME} PRIVATE -Werror)
 		endif()
 	elseif(MSVC)
+		# Remove /W3, which is added by default, since we set /W4. Some build
+		# generators with MSVC complain about both /W3 and /W4 being specified.
+		foreach(flag_var CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+			if(${flag_var} MATCHES "/W3")
+				string(REGEX REPLACE "/W3" "" ${flag_var} "${${flag_var}}")
+			endif()
+		endforeach()
+
 		target_compile_options(${NAME} PRIVATE /MP /W4 /w44062 /permissive-)
 		target_compile_definitions(${NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
 
@@ -364,10 +382,9 @@ macro(add_common_target_options NAME)
 	endif()
 endmacro()
 
-#===================================
+# ===================================
 # Setup paths ======================
-#===================================
-
+# ===================================
 include_directories(
 	${PROJECT_SOURCE_DIR}/Include
 )
@@ -375,30 +392,37 @@ include_directories(
 # Include list of source files
 include(FileList)
 
-#===================================
+# ===================================
 # Find dependencies ================
-#===================================
+# ===================================
 
 # FreeType
 if(NOT NO_FONT_INTERFACE_DEFAULT)
 	if(EMSCRIPTEN)
 		set(EMSCRIPTEN_FLAGS "${EMSCRIPTEN_FLAGS} -sUSE_FREETYPE=1")
 	else()
-		find_package(Freetype REQUIRED)
-		if(MSVC AND FREETYPE_VERSION_STRING STREQUAL "2.11.0")
-			message(WARNING "You are using FreeType version 2.11.0 which introduced an issue that causes a crash on startup on some of the samples. Please avoid this version specifically.")
-		endif()
+		if(TARGET freetype)
+			list(APPEND CORE_LINK_LIBS freetype)
+			list(APPEND CORE_INCLUDE_DIRS freetype)
+		else()
+			find_package(Freetype REQUIRED)
 
-		list(APPEND CORE_LINK_LIBS ${FREETYPE_LIBRARIES})
-		list(APPEND CORE_INCLUDE_DIRS ${FREETYPE_INCLUDE_DIRS})
+			if(MSVC AND FREETYPE_VERSION_STRING STREQUAL "2.11.0")
+				message(WARNING "You are using FreeType version 2.11.0 which introduced an issue that causes a crash on startup on some of the samples. Please avoid this version specifically.")
+			endif()
+
+			list(APPEND CORE_LINK_LIBS ${FREETYPE_LIBRARIES})
+			list(APPEND CORE_INCLUDE_DIRS ${FREETYPE_INCLUDE_DIRS})
+		endif()
 	endif()
 endif()
 
 # HarfBuzz
-if (ENABLE_HARFBUZZ)
+if(ENABLE_HARFBUZZ)
 	if(NO_FONT_INTERFACE_DEFAULT)
 		message(FATAL_ERROR "The HarfBuzz sample requires the default (FreeType) font engine to be enabled. Please disable either NO_FONT_INTERFACE_DEFAULT or ENABLE_HARFBUZZ.")
 	endif()
+
 	if(WIN32 AND BUILD_SHARED_LIBS)
 		message(FATAL_ERROR "-- The HarfBuzz sample cannot be built when using shared libraries on Windows. Please disable either BUILD_SHARED_LIBS or ENABLE_HARFBUZZ.")
 	endif()
@@ -420,10 +444,10 @@ if(BUILD_LUA_BINDINGS)
 endif()
 
 # rlottie
-if( ENABLE_LOTTIE_PLUGIN AND TARGET rlottie::rlottie )
+if(ENABLE_LOTTIE_PLUGIN AND TARGET rlottie::rlottie)
 	list(APPEND CORE_LINK_LIBS rlottie::rlottie)
 	list(APPEND CORE_INCLUDE_DIRS rlottie::rlottie)
-elseif( ENABLE_LOTTIE_PLUGIN )
+elseif(ENABLE_LOTTIE_PLUGIN)
 	# Try to find the rlottie library.
 	if(NOT DEFINED rlottie_DIR)
 		set(rlottie_DIR $ENV{RLOTTIE_DIR})
@@ -455,7 +479,7 @@ elseif( ENABLE_LOTTIE_PLUGIN )
 endif()
 
 # lunasvg
-if( ENABLE_SVG_PLUGIN )
+if(ENABLE_SVG_PLUGIN)
 	if(NOT DEFINED LUNASVG_DIR)
 		set(LUNASVG_DIR $ENV{LUNASVG_DIR})
 	endif()
@@ -475,71 +499,68 @@ if( ENABLE_SVG_PLUGIN )
 	message("-- Can SVG plugin be enabled - yes - lunasvg library found")
 endif()
 
-
 if(NOT BUILD_FRAMEWORK)
-#===================================
-# Build libraries ==================
-#===================================
+	# ===================================
+	# Build libraries ==================
+	# ===================================
+	set(LIBRARIES Core Debugger)
 
-set(LIBRARIES Core Debugger)
+	foreach(library ${LIBRARIES})
+		set(NAME Rml${library})
 
-foreach(library ${LIBRARIES})
-	set(NAME Rml${library})
+		add_library(${NAME}
+			${${library}_HDR_FILES}
+			${${library}_PUB_HDR_FILES}
+			${MASTER_${library}_PUB_HDR_FILES}
+			${${library}_SRC_FILES}
+		)
+		add_library(RmlUi::${library} ALIAS ${NAME})
 
-	add_library(${NAME}
-		${${library}_HDR_FILES}
-		${${library}_PUB_HDR_FILES}
-		${MASTER_${library}_PUB_HDR_FILES}
-		${${library}_SRC_FILES}
-	)
-	add_library(RmlUi::${library} ALIAS ${NAME})
+		set_target_properties(${NAME} PROPERTIES
+			VERSION ${PROJECT_VERSION}
+			SOVERSION ${PROJECT_VERSION_MAJOR}
+		)
 
-	set_target_properties(${NAME} PROPERTIES
-		VERSION ${PROJECT_VERSION}
-		SOVERSION ${PROJECT_VERSION_MAJOR}
-	)
+		add_common_target_options(${NAME})
 
-	add_common_target_options(${NAME})
-
-	install(TARGETS ${NAME}
-		EXPORT RmlUiTargets
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-	)
-
-	set(RMLUI_EXPORTED_TARGETS ${RMLUI_EXPORTED_TARGETS} ${NAME})
-endforeach(library)
-
-if( CUSTOM_CONFIGURATION )
-	foreach(library ${CUSTOM_LINK_LIBRARIES})
-		install(TARGETS ${library}
+		install(TARGETS ${NAME}
 			EXPORT RmlUiTargets
 			LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 			ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 			RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 		)
-		set(RMLUI_EXPORTED_TARGETS ${RMLUI_EXPORTED_TARGETS} ${library})
-	endforeach(library ${CUSTOM_LINK_LIBRARIES})
-endif()
 
-if( MATRIX_ROW_MAJOR )
-	list(APPEND CORE_PUBLIC_DEFS -DRMLUI_MATRIX_ROW_MAJOR)
-endif ()
-if( CUSTOM_CONFIGURATION AND CUSTOM_LINK_LIBRARIES )
-	target_link_libraries(RmlCore PUBLIC ${CUSTOM_LINK_LIBRARIES})
-endif ()
+		set(RMLUI_EXPORTED_TARGETS ${RMLUI_EXPORTED_TARGETS} ${NAME})
+	endforeach(library)
 
-if (PRECOMPILED_HEADERS_ENABLED)
-	target_precompile_headers(RmlCore PRIVATE ${PROJECT_SOURCE_DIR}/Source/Core/precompiled.h)
-endif()
+	if(CUSTOM_CONFIGURATION)
+		foreach(library ${CUSTOM_LINK_LIBRARIES})
+			install(TARGETS ${library}
+				EXPORT RmlUiTargets
+				LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+				ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+				RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+			)
+			set(RMLUI_EXPORTED_TARGETS ${RMLUI_EXPORTED_TARGETS} ${library})
+		endforeach(library ${CUSTOM_LINK_LIBRARIES})
+	endif()
 
+	if(MATRIX_ROW_MAJOR)
+		list(APPEND CORE_PUBLIC_DEFS -DRMLUI_MATRIX_ROW_MAJOR)
+	endif()
+
+	if(CUSTOM_CONFIGURATION AND CUSTOM_LINK_LIBRARIES)
+		target_link_libraries(RmlCore PUBLIC ${CUSTOM_LINK_LIBRARIES})
+	endif()
+
+	if(PRECOMPILED_HEADERS_ENABLED)
+		target_precompile_headers(RmlCore PRIVATE ${PROJECT_SOURCE_DIR}/Source/Core/precompiled.h)
+	endif()
 
 else(NOT BUILD_FRAMEWORK)
-	#===================================
+	# ===================================
 	# Build combined Framework =========
-	#===================================
-
+	# ===================================
 	set(NAME RmlUi)
 
 	set(MASTER_PUB_HDR_FILES
@@ -593,7 +614,6 @@ else(NOT BUILD_FRAMEWORK)
 	set(RMLUI_EXPORTED_TARGETS ${RMLUI_EXPORTED_TARGETS} ${NAME})
 endif(NOT BUILD_FRAMEWORK)
 
-
 # Build Lua bindings
 if(BUILD_LUA_BINDINGS)
 	set(NAME RmlLua)
@@ -621,10 +641,11 @@ if(BUILD_LUA_BINDINGS)
 endif()
 
 if(DISABLE_RTTI_AND_EXCEPTIONS)
-	if( CMAKE_COMPILER_IS_GNUCXX )
-		add_definitions( -fno-rtti -fno-exceptions )
-	elseif( MSVC )
-		add_definitions( -D_HAS_EXCEPTIONS=0 /GR- )
+	if(CMAKE_COMPILER_IS_GNUCXX)
+		add_definitions(-fno-rtti -fno-exceptions)
+	elseif(MSVC)
+		add_definitions(-D_HAS_EXCEPTIONS=0 /GR-)
+
 		if(CMAKE_CXX_FLAGS MATCHES "/EHsc ")
 			string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 			message(STATUS "CMAKE_CXX_FLAGS matches /EHsc before end of string replaced...")
@@ -639,11 +660,9 @@ if(DISABLE_RTTI_AND_EXCEPTIONS)
 	endif()
 endif()
 
-
-#===================================
+# ===================================
 # Link libraries ===================
-#===================================
-
+# ===================================
 if(NOT BUILD_FRAMEWORK)
 	target_include_directories(RmlCore PRIVATE ${CORE_INCLUDE_DIRS})
 	target_include_directories(RmlCore INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Include> $<INSTALL_INTERFACE:include>)
@@ -670,30 +689,32 @@ if(BUILD_LUA_BINDINGS)
 	endif()
 endif()
 
-
-#===================================
+# ===================================
 # Build samples ====================
-#===================================
-
+# ===================================
 function(resource VAR SOURCE_PATH DESTINATION PATTERN)
-    file(GLOB_RECURSE _LIST CONFIGURE_DEPENDS ${SOURCE_PATH}/${PATTERN})
-    foreach (RESOURCE ${_LIST})
-        get_filename_component(_PARENT ${RESOURCE} DIRECTORY)
-        if (${_PARENT} STREQUAL ${SOURCE_PATH})
-            set(_DESTINATION ${DESTINATION})
-        else ()
-            file(RELATIVE_PATH _DESTINATION ${SOURCE_PATH} ${_PARENT})
-            set(_DESTINATION ${DESTINATION}/${_DESTINATION})
-        endif ()
-        set_property(SOURCE ${RESOURCE} PROPERTY MACOSX_PACKAGE_LOCATION ${_DESTINATION})
-    endforeach (RESOURCE)
-    set(${VAR} ${_LIST} PARENT_SCOPE)
+	file(GLOB_RECURSE _LIST CONFIGURE_DEPENDS ${SOURCE_PATH}/${PATTERN})
+
+	foreach(RESOURCE ${_LIST})
+		get_filename_component(_PARENT ${RESOURCE} DIRECTORY)
+
+		if(${_PARENT} STREQUAL ${SOURCE_PATH})
+			set(_DESTINATION ${DESTINATION})
+		else()
+			file(RELATIVE_PATH _DESTINATION ${SOURCE_PATH} ${_PARENT})
+			set(_DESTINATION ${DESTINATION}/${_DESTINATION})
+		endif()
+
+		set_property(SOURCE ${RESOURCE} PROPERTY MACOSX_PACKAGE_LOCATION ${_DESTINATION})
+	endforeach(RESOURCE)
+
+	set(${VAR} ${_LIST} PARENT_SCOPE)
 endfunction()
 
 # Build and link the samples
 macro(bl_sample NAME SAMPLE_SUB_DIR)
-	if (WIN32)
-		add_executable(${NAME} WIN32 ${${NAME}_SRC_FILES} ${${NAME}_HDR_FILES} )
+	if(WIN32)
+		add_executable(${NAME} WIN32 ${${NAME}_SRC_FILES} ${${NAME}_HDR_FILES})
 	elseif(APPLE)
 		resource(ASSETS ${SAMPLES_DIR}/assets Resources/assets *)
 		resource(DATA ${SAMPLES_DIR}/${SAMPLE_SUB_DIR}/data Resources/${SAMPLE_SUB_DIR}/data *)
@@ -711,7 +732,7 @@ macro(bl_sample NAME SAMPLE_SUB_DIR)
 			set_target_properties(${NAME} PROPERTIES LINK_FLAGS "-rpath @executable_path/../lib")
 		endif()
 	else()
-		add_executable(${NAME} ${${NAME}_SRC_FILES} ${${NAME}_HDR_FILES} )
+		add_executable(${NAME} ${${NAME}_SRC_FILES} ${${NAME}_HDR_FILES})
 	endif()
 
 	add_common_target_options(${NAME})
@@ -740,10 +761,10 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 	endif()
 
 	set(SAMPLES_DIR ${PROJECT_SOURCE_DIR}/Samples CACHE PATH "Path to samples directory.")
+
 	if(WIN32)
 		mark_as_advanced(SAMPLES_DIR)
 	endif()
-
 
 	set(BACKEND_SRC_FILES "${${SAMPLES_BACKEND}_SRC_FILES}")
 	set(BACKEND_HDR_FILES "${${SAMPLES_BACKEND}_HDR_FILES}")
@@ -766,15 +787,17 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 	target_link_libraries(shell PUBLIC RmlCore RmlDebugger)
 
 	# Add OS dependencies.
-	if (WIN32)
+	if(WIN32)
 		target_link_libraries(shell PRIVATE shlwapi imm32)
 	elseif(APPLE)
 		target_link_libraries(shell PRIVATE "-framework Cocoa")
 	elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 		find_package(X11)
-		if (X11_FOUND)
+
+		if(X11_FOUND)
 			message("-- Found X11 library.")
 			target_link_libraries(shell PRIVATE ${X11_LIBRARIES})
+
 			# Platform_X11 uses Xkb if possible instead of XGetKeyboardMapping for performance.
 			if(X11_Xkb_FOUND)
 				FIND_PACKAGE_MESSAGE(X11 "Found X11 KBlib: ${X11_X11_LIB}" "[${X11_X11_LIB}][${X11_XkbINCLUDE_DIR}]")
@@ -792,6 +815,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 
 	if(SAMPLES_BACKEND MATCHES "^SDL")
 		message("-- Looking for SDL2 library for samples backend.")
+
 		if(EMSCRIPTEN)
 			set(EMSCRIPTEN_FLAGS "${EMSCRIPTEN_FLAGS} -sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sSDL2_IMAGE_FORMATS='[tga]'")
 		else()
@@ -803,6 +827,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 
 			if(SAMPLES_BACKEND STREQUAL "SDL_GL2")
 				find_package(GLEW REQUIRED)
+
 				if(NOT GLEW_FOUND)
 					message(FATAL_ERROR "GLEW not found")
 				endif()
@@ -815,6 +840,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 
 			if(SAMPLES_BACKEND STREQUAL "SDL_GL2" OR SAMPLES_BACKEND STREQUAL "SDL_GL3" OR SAMPLES_BACKEND STREQUAL "SDL_SDLrenderer")
 				find_package(SDL2_image REQUIRED)
+
 				if(NOT SDL2_IMAGE_FOUND)
 					message(FATAL_ERROR "SDL2_image not found")
 				endif()
@@ -827,18 +853,24 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 
 	if(SAMPLES_BACKEND MATCHES "^SFML")
 		message("-- Looking for SFML 2.x library for samples backend.")
-		if (WIN32)
+
+		if(WIN32)
 			find_package(SFML 2 REQUIRED COMPONENTS graphics window system main)
 		else()
 			find_package(SFML 2 REQUIRED COMPONENTS graphics window system)
 		endif()
+
 		target_include_directories(shell PRIVATE ${SFML_INCLUDE_DIR})
 		target_link_libraries(shell PRIVATE ${SFML_LIBRARIES})
 	endif()
 
 	if(SAMPLES_BACKEND MATCHES "^GLFW")
 		message("-- Looking for GLFW3 library for samples backend.")
-		find_package(glfw3 3.3 CONFIG REQUIRED)
+
+		if(NOT TARGET glfw)
+			find_package(glfw3 3.3 CONFIG REQUIRED)
+		endif()
+
 		target_link_libraries(shell PRIVATE glfw)
 		message("-- Found GLFW version ${glfw3_VERSION}.")
 	endif()
@@ -850,6 +882,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 		target_include_directories(shell PRIVATE ${OPENGL_INCLUDE_DIR})
 		target_link_libraries(shell PRIVATE ${OPENGL_LIBRARIES})
 		target_compile_definitions(shell PRIVATE RMLUI_RENDERER_GL2)
+
 		if(APPLE)
 			target_compile_definitions(shell PRIVATE GL_SILENCE_DEPRECATION)
 		endif()
@@ -860,6 +893,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 
 		option(RMLUI_VK_DEBUG "Enable debugging mode for Vulkan renderer." OFF)
 		mark_as_advanced(RMLUI_VK_DEBUG)
+
 		if(RMLUI_VK_DEBUG)
 			target_compile_definitions(shell PRIVATE RMLUI_VK_DEBUG)
 		endif()
@@ -869,6 +903,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 
 	if(SAMPLES_BACKEND MATCHES "GL3$")
 		message("-- Adding OpenGL 3 renderer backend.")
+
 		if(EMSCRIPTEN)
 			set(EMSCRIPTEN_EXE_FLAGS "${EMSCRIPTEN_EXE_FLAGS} -sMAX_WEBGL_VERSION=2")
 		else()
@@ -876,13 +911,13 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 			target_include_directories(shell PRIVATE ${OPENGL_INCLUDE_DIR})
 			target_link_libraries(shell PRIVATE ${OPENGL_LIBRARIES} ${CMAKE_DL_LIBS})
 			target_compile_definitions(shell PRIVATE RMLUI_RENDERER_GL3)
+
 			if(APPLE)
 				target_compile_definitions(shell PRIVATE GL_SILENCE_DEPRECATION)
 			endif()
 		endif()
 	endif()
 endif()
-
 
 if(BUILD_SAMPLES)
 	set(samples treeview customlog drag loaddocument transform bitmapfont animation benchmark demo databinding)
@@ -891,16 +926,18 @@ if(BUILD_SAMPLES)
 	if(ENABLE_LOTTIE_PLUGIN)
 		list(APPEND samples "lottie")
 	endif()
+
 	if(ENABLE_SVG_PLUGIN)
 		list(APPEND samples "svg")
 	endif()
+
 	if(ENABLE_HARFBUZZ)
 		list(APPEND samples "harfbuzzshaping")
 	endif()
 
 	# Build and install the basic samples
 	foreach(sample ${samples})
-		bl_sample(${sample} basic/${sample} ${sample_LIBRARIES} )
+		bl_sample(${sample} basic/${sample} ${sample_LIBRARIES})
 
 		# The samples always set this as their current working directory
 		install(DIRECTORY DESTINATION ${SAMPLES_DIR}/basic/${sample})
@@ -922,7 +959,7 @@ if(BUILD_SAMPLES)
 	endforeach()
 
 	# Build and install invaders sample
-	bl_sample(invaders invaders  ${sample_LIBRARIES})
+	bl_sample(invaders invaders ${sample_LIBRARIES})
 	install(DIRECTORY DESTINATION ${SAMPLES_DIR}/invaders)
 	install(TARGETS invaders
 		RUNTIME DESTINATION ${SAMPLES_DIR}/invaders
@@ -937,7 +974,7 @@ if(BUILD_SAMPLES)
 	endif()
 
 	# Attach harfbuzz sample dependencies to samples
-	if (ENABLE_HARFBUZZ)
+	if(ENABLE_HARFBUZZ)
 		target_include_directories(harfbuzzshaping PRIVATE ${FREETYPE_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/Source/Core)
 		target_link_libraries(harfbuzzshaping harfbuzz::harfbuzz)
 	endif()
@@ -952,6 +989,7 @@ if(BUILD_SAMPLES)
 		foreach(sample ${samples})
 			set(SAMPLE_DATA_FOLDER "Samples/basic/${sample}/data/")
 			set(ABS_SAMPLE_DATA_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/${SAMPLE_DATA_FOLDER}")
+
 			if(EXISTS ${ABS_SAMPLE_DATA_FOLDER})
 				target_link_libraries(${sample} "--preload-file ${ABS_SAMPLE_DATA_FOLDER}@/${SAMPLE_DATA_FOLDER}")
 			endif()
@@ -960,6 +998,7 @@ if(BUILD_SAMPLES)
 		foreach(tutorial ${tutorials})
 			set(TUTORIAL_DATA_FOLDER "Samples/tutorial/${tutorial}/data/")
 			set(ABS_TUTORIAL_DATA_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/${TUTORIAL_DATA_FOLDER}")
+
 			if(EXISTS ${ABS_TUTORIAL_DATA_FOLDER})
 				target_link_libraries("tutorial_${tutorial}" "--preload-file ${ABS_TUTORIAL_DATA_FOLDER}@/${TUTORIAL_DATA_FOLDER}")
 			endif()
@@ -970,18 +1009,16 @@ if(BUILD_SAMPLES)
 	endif()
 endif()
 
-#===================================
+# ===================================
 # Source grouping for IDEs =========
-#===================================
-
+# ===================================
 source_group("Core\\Layout" REGULAR_EXPRESSION "/Core/Layout/")
 source_group("Core\\Elements" REGULAR_EXPRESSION "/Core/Elements/")
 source_group("Core\\FontEngineDefault" REGULAR_EXPRESSION "/Core/FontEngineDefault/")
 
-#===================================
+# ===================================
 # Add global options ===============
-#===================================
-
+# ===================================
 if(EMSCRIPTEN)
 	# Enables Asyncify which we only need since the backend doesn't control the main loop. This enables us to yield to the browser during the backend call to
 	# Backend::ProcessEvents(). Asyncify results in larger and slower code, users are instead encouraged to use 'emscripten_set_main_loop()' and family.
@@ -994,69 +1031,67 @@ if(EMSCRIPTEN)
 	set(CMAKE_EXECUTABLE_SUFFIX .html)
 endif()
 
-#===================================
+# ===================================
 # Add tests ========================
-#===================================
-
+# ===================================
 if(RMLUI_TESTS_ENABLED)
 	add_subdirectory(Tests)
 endif()
 
-#===================================
+# ===================================
 # Installation =====================
-#===================================
-
+# ===================================
 if(BUILD_LUA_BINDINGS)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Include/RmlUi
-			DESTINATION include
+		DESTINATION include
 	)
 else()
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Include/RmlUi
-			DESTINATION include
-			PATTERN "Lua" EXCLUDE
+		DESTINATION include
+		PATTERN "Lua" EXCLUDE
 	)
 endif()
 
 if(BUILD_SAMPLES)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/assets
-			DESTINATION ${SAMPLES_DIR}
+		DESTINATION ${SAMPLES_DIR}
 	)
 
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/tutorial/template/data
-			DESTINATION ${SAMPLES_DIR}/tutorial/template
+		DESTINATION ${SAMPLES_DIR}/tutorial/template
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/tutorial/drag/data
-			DESTINATION ${SAMPLES_DIR}/tutorial/drag
+		DESTINATION ${SAMPLES_DIR}/tutorial/drag
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/animation/data
-			DESTINATION ${SAMPLES_DIR}/basic/animation
+		DESTINATION ${SAMPLES_DIR}/basic/animation
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/benchmark/data
-			DESTINATION ${SAMPLES_DIR}/basic/benchmark
+		DESTINATION ${SAMPLES_DIR}/basic/benchmark
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/bitmapfont/data
-			DESTINATION ${SAMPLES_DIR}/basic/bitmapfont
+		DESTINATION ${SAMPLES_DIR}/basic/bitmapfont
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/databinding/data
-			DESTINATION ${SAMPLES_DIR}/basic/databinding
+		DESTINATION ${SAMPLES_DIR}/basic/databinding
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/demo/data
-			DESTINATION ${SAMPLES_DIR}/basic/demo
+		DESTINATION ${SAMPLES_DIR}/basic/demo
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/transform/data
-			DESTINATION ${SAMPLES_DIR}/basic/transform
+		DESTINATION ${SAMPLES_DIR}/basic/transform
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/treeview/data
-			DESTINATION ${SAMPLES_DIR}/basic/treeview
+		DESTINATION ${SAMPLES_DIR}/basic/treeview
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/drag/data
-			DESTINATION ${SAMPLES_DIR}/basic/drag
+		DESTINATION ${SAMPLES_DIR}/basic/drag
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/invaders/data
-			DESTINATION ${SAMPLES_DIR}/invaders
+		DESTINATION ${SAMPLES_DIR}/invaders
 	)
 
-	if (ENABLE_HARFBUZZ AND HARFBUZZ_FOUND)
+	if(ENABLE_HARFBUZZ AND HARFBUZZ_FOUND)
 		install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/harfbuzzshaping/data
 			DESTINATION ${SAMPLES_DIR}/basic/harfbuzzshaping
 		)
@@ -1064,71 +1099,74 @@ if(BUILD_SAMPLES)
 
 	if(TARGET lottie)
 		install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/lottie/data
-				DESTINATION ${SAMPLES_DIR}/basic/lottie
+			DESTINATION ${SAMPLES_DIR}/basic/lottie
 		)
 	endif()
+
 	if(TARGET svg)
 		install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/svg/data
-				DESTINATION ${SAMPLES_DIR}/basic/svg
+			DESTINATION ${SAMPLES_DIR}/basic/svg
 		)
 	endif()
 
 	if(BUILD_LUA_BINDINGS)
 		install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/luainvaders/data
-				DESTINATION ${SAMPLES_DIR}/luainvaders
+			DESTINATION ${SAMPLES_DIR}/luainvaders
 		)
 		install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/luainvaders/lua
-				DESTINATION ${SAMPLES_DIR}/luainvaders
+			DESTINATION ${SAMPLES_DIR}/luainvaders
 		)
 	endif()
 endif()
 
-#===================================
+# ===================================
 # Generate Config.cmake files ======
-#===================================
+# ===================================
 
 # Try to include helper module
 include(CMakePackageConfigHelpers OPTIONAL RESULT_VARIABLE PkgHelpers_AVAILABLE)
 
 # guard against older versions of cmake which do not provide it
 if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
-if(PkgHelpers_AVAILABLE)
-	set (INCLUDE_INSTALL_DIR "include")
-	set (LIB_INSTALL_DIR "lib")
-	set (INCLUDE_DIR "${PROJECT_SOURCE_DIR}/Include")
+	if(PkgHelpers_AVAILABLE)
+		set(INCLUDE_INSTALL_DIR "include")
+		set(LIB_INSTALL_DIR "lib")
+		set(INCLUDE_DIR "${PROJECT_SOURCE_DIR}/Include")
 
-	# generate configuration for install tree
-	configure_package_config_file(${PROJECT_SOURCE_DIR}/CMake/RmlUiConfig.cmake.install.in
-		${CMAKE_CURRENT_BINARY_DIR}/install/RmlUiConfig.cmake
-		INSTALL_DESTINATION ${LIB_INSTALL_DIR}/RmlUi/cmake
-		PATH_VARS INCLUDE_INSTALL_DIR LIB_INSTALL_DIR)
-	write_basic_package_version_file(
-		${CMAKE_CURRENT_BINARY_DIR}/install/RmlUiConfigVersion.cmake
-		VERSION ${PROJECT_VERSION}
-		COMPATIBILITY SameMajorVersion )
-	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/install/RmlUiConfig.cmake
-		${CMAKE_CURRENT_BINARY_DIR}/install/RmlUiConfigVersion.cmake
-		DESTINATION ${LIB_INSTALL_DIR}/RmlUi/cmake )
-	install(EXPORT RmlUiTargets
-		DESTINATION ${LIB_INSTALL_DIR}/RmlUi/cmake)
+		# generate configuration for install tree
+		configure_package_config_file(${PROJECT_SOURCE_DIR}/CMake/RmlUiConfig.cmake.install.in
+			${CMAKE_CURRENT_BINARY_DIR}/install/RmlUiConfig.cmake
+			INSTALL_DESTINATION ${LIB_INSTALL_DIR}/RmlUi/cmake
+			PATH_VARS INCLUDE_INSTALL_DIR LIB_INSTALL_DIR)
+		write_basic_package_version_file(
+			${CMAKE_CURRENT_BINARY_DIR}/install/RmlUiConfigVersion.cmake
+			VERSION ${PROJECT_VERSION}
+			COMPATIBILITY SameMajorVersion)
+		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/install/RmlUiConfig.cmake
+			${CMAKE_CURRENT_BINARY_DIR}/install/RmlUiConfigVersion.cmake
+			DESTINATION ${LIB_INSTALL_DIR}/RmlUi/cmake)
+		install(EXPORT RmlUiTargets
+			DESTINATION ${LIB_INSTALL_DIR}/RmlUi/cmake)
 
-	# generate configuration for build tree
-	configure_package_config_file(${PROJECT_SOURCE_DIR}/CMake/RmlUiConfig.cmake.build.in
-		${CMAKE_CURRENT_BINARY_DIR}/RmlUiConfig.cmake
-		INSTALL_DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
-		PATH_VARS INCLUDE_DIR CMAKE_CURRENT_BINARY_DIR)
-	if(NOT ${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
-		export(TARGETS ${RMLUI_EXPORTED_TARGETS}
-			FILE "${CMAKE_CURRENT_BINARY_DIR}/RmlUiTargets.cmake")
+		# generate configuration for build tree
+		configure_package_config_file(${PROJECT_SOURCE_DIR}/CMake/RmlUiConfig.cmake.build.in
+			${CMAKE_CURRENT_BINARY_DIR}/RmlUiConfig.cmake
+			INSTALL_DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+			PATH_VARS INCLUDE_DIR CMAKE_CURRENT_BINARY_DIR)
+
+		if(NOT ${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
+			export(TARGETS ${RMLUI_EXPORTED_TARGETS}
+				FILE "${CMAKE_CURRENT_BINARY_DIR}/RmlUiTargets.cmake")
+		endif()
+
+		write_basic_package_version_file(
+			${CMAKE_CURRENT_BINARY_DIR}/RmlUiConfigVersion.cmake
+			VERSION ${PROJECT_VERSION}
+			COMPATIBILITY SameMajorVersion)
+		set(RmlUi_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "The directory containing a CMake configuration file for RmlUi.")
+	else()
+		message("If you wish to use find_package(RmlUi) in your own project to find RmlUi library"
+			" please update cmake to version which provides CMakePackageConfighelpers module"
+			" or write generators for RmlUiConfig.cmake by yourself.")
 	endif()
-	write_basic_package_version_file(
-		${CMAKE_CURRENT_BINARY_DIR}/RmlUiConfigVersion.cmake
-		VERSION ${PROJECT_VERSION}
-		COMPATIBILITY SameMajorVersion )
-	set(RmlUi_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "The directory containing a CMake configuration file for RmlUi.")
-else()
-	message("If you wish to use find_package(RmlUi) in your own project to find RmlUi library"
-		" please update cmake to version which provides CMakePackageConfighelpers module"
-		" or write generators for RmlUiConfig.cmake by yourself.")
-endif()
 endif()
