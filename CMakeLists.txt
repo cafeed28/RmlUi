@@ -480,16 +480,22 @@ endif()
 
 # lunasvg
 if(ENABLE_SVG_PLUGIN)
-	if(NOT DEFINED LUNASVG_DIR)
-		set(LUNASVG_DIR $ENV{LUNASVG_DIR})
-	endif()
-
 	message("-- Can SVG plugin be enabled - looking for lunasvg library")
 
-	find_package(lunasvg REQUIRED)
+	if(TARGET lunasvg)
+		list(APPEND CORE_LINK_LIBS lunasvg)
+		list(APPEND CORE_INCLUDE_DIRS lunasvg)
+	else()
+		if(NOT DEFINED LUNASVG_DIR)
+			set(LUNASVG_DIR $ENV{LUNASVG_DIR})
+		endif()
 
-	list(APPEND CORE_LINK_LIBS ${LUNASVG_LIBRARIES})
-	list(APPEND CORE_INCLUDE_DIRS ${LUNASVG_INCLUDE_DIR})
+		find_package(lunasvg REQUIRED)
+
+		list(APPEND CORE_LINK_LIBS ${LUNASVG_LIBRARIES})
+		list(APPEND CORE_INCLUDE_DIRS ${LUNASVG_INCLUDE_DIR})
+	endif()
+
 	list(APPEND CORE_PRIVATE_DEFS RMLUI_ENABLE_SVG_PLUGIN)
 
 	list(APPEND Core_HDR_FILES ${SVG_HDR_FILES})
