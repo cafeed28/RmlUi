@@ -644,6 +644,14 @@ if(DISABLE_RTTI_AND_EXCEPTIONS)
 	if(CMAKE_COMPILER_IS_GNUCXX)
 		add_definitions(-fno-rtti -fno-exceptions)
 	elseif(MSVC)
+		# Remove /GR, which is added by default, since we set /GR-. Some build
+		# generators with MSVC complain about both /GR and /GR- being specified.
+		foreach(flag_var CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+			if(${flag_var} MATCHES "/GR")
+				string(REGEX REPLACE "/GR" "" ${flag_var} "${${flag_var}}")
+			endif()
+		endforeach()
+
 		add_definitions(-D_HAS_EXCEPTIONS=0 /GR-)
 
 		if(CMAKE_CXX_FLAGS MATCHES "/EHsc ")
