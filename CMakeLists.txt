@@ -55,6 +55,9 @@ endif(POLICY CMP0072)
 if(POLICY CMP0074)
 	cmake_policy(SET CMP0074 NEW)
 endif(POLICY CMP0074)
+if(POLICY CMP0092)
+	cmake_policy(SET CMP0092 NEW)
+endif(POLICY CMP0092)
 
 project(RmlUi LANGUAGES C CXX VERSION 6.0)
 
@@ -158,6 +161,7 @@ option(BUILD_LUA_BINDINGS "Build Lua bindings" OFF)
 
 if(BUILD_LUA_BINDINGS)
 	option(BUILD_LUA_BINDINGS_FOR_LUAJIT "Build Lua bindings using luajit" OFF)
+	option(RMLUI_LUA_AS_CXX "Lua library was compiled with a C++ compiler" OFF)
 endif()
 
 if(APPLE)
@@ -168,7 +172,7 @@ option(BUILD_SAMPLES "Build samples" OFF)
 option(ENABLE_HARFBUZZ "Enable HarfBuzz for text-shaping sample. Requires the HarfBuzz library." OFF)
 
 set(SAMPLES_BACKEND "auto" CACHE STRING "Backend platform and renderer used for the samples.")
-set_property(CACHE SAMPLES_BACKEND PROPERTY STRINGS auto Win32_GL2 Win32_VK X11_GL2 SDL_GL2 SDL_GL3 SDL_VK SDL_SDLrenderer SFML_GL2 GLFW_GL2 GLFW_GL3 GLFW_VK)
+set_property(CACHE SAMPLES_BACKEND PROPERTY STRINGS auto Win32_GL2 Win32_VK X11_GL2 SDL_GL2 SDL_GL3 SDL_VK SDL_SDLrenderer SFML_GL2 GLFW_GL2 GLFW_GL3 GLFW_VK BackwardCompatible_GLFW_GL2 BackwardCompatible_GLFW_GL3)
 
 if(SAMPLES_BACKEND STREQUAL "auto")
 	if(EMSCRIPTEN)
@@ -441,6 +445,9 @@ if(BUILD_LUA_BINDINGS)
 		list(APPEND LUA_BINDINGS_INCLUDE_DIRS ${LUA_INCLUDE_DIR})
 		list(APPEND LUA_BINDINGS_LINK_LIBS ${LUA_LIBRARIES})
 	endif()
+	if(RMLUI_LUA_AS_CXX)
+		list(APPEND LUA_BINDINGS_PUBLIC_DEFS -DRMLUI_LUA_COMPILED_AS_CXX)
+	endif()
 endif()
 
 # rlottie
@@ -697,9 +704,11 @@ if(BUILD_LUA_BINDINGS)
 	if(NOT BUILD_FRAMEWORK)
 		target_link_libraries(RmlLua RmlCore ${LUA_BINDINGS_LINK_LIBS})
 		target_include_directories(RmlLua PUBLIC ${LUA_BINDINGS_INCLUDE_DIRS})
+		target_compile_definitions(RmlLua PUBLIC ${LUA_BINDINGS_PUBLIC_DEFS})
 	else()
 		target_link_libraries(RmlUi ${LUA_BINDINGS_LINK_LIBS})
 		target_include_directories(RmlUi PUBLIC ${LUA_BINDINGS_INCLUDE_DIRS})
+		target_compile_definitions(RmlUi PUBLIC ${LUA_BINDINGS_PUBLIC_DEFS})
 	endif()
 endif()
 
@@ -878,7 +887,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 		target_link_libraries(shell PRIVATE ${SFML_LIBRARIES})
 	endif()
 
-	if(SAMPLES_BACKEND MATCHES "^GLFW")
+	if(SAMPLES_BACKEND MATCHES "GLFW")
 		message("-- Looking for GLFW3 library for samples backend.")
 
 		if(NOT TARGET glfw)
@@ -919,7 +928,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 		message("-- Adding OpenGL 3 renderer backend.")
 
 		if(EMSCRIPTEN)
-			set(EMSCRIPTEN_EXE_FLAGS "${EMSCRIPTEN_EXE_FLAGS} -sMAX_WEBGL_VERSION=2")
+			set(EMSCRIPTEN_EXE_FLAGS "${EMSCRIPTEN_EXE_FLAGS} -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2")
 		else()
 			find_package(OpenGL REQUIRED)
 			target_include_directories(shell PRIVATE ${OPENGL_INCLUDE_DIR})
@@ -934,7 +943,7 @@ if(BUILD_SAMPLES OR BUILD_TESTING)
 endif()
 
 if(BUILD_SAMPLES)
-	set(samples treeview customlog drag loaddocument transform bitmapfont animation benchmark demo databinding)
+	set(samples treeview customlog drag loaddocument transform bitmapfont animation benchmark demo databinding effects)
 	set(tutorials template drag)
 
 	if(ENABLE_LOTTIE_PLUGIN)
@@ -995,10 +1004,11 @@ if(BUILD_SAMPLES)
 
 	# Add assets to emscripten binaries
 	if(EMSCRIPTEN)
-		message("-- Preloading emscipten sample assets")
+		message("-- Preloading emscripten sample assets")
 
 		set(COMMON_ASSET_FOLDER "Samples/assets/")
 		set(EMSCRIPTEN_EXE_FLAGS "${EMSCRIPTEN_EXE_FLAGS} --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/${COMMON_ASSET_FOLDER}@/${COMMON_ASSET_FOLDER}")
+		file(GLOB COMMON_ASSET_FILES "${COMMON_ASSET_FOLDER}*")
 
 		foreach(sample ${samples})
 			set(SAMPLE_DATA_FOLDER "Samples/basic/${sample}/data/")
@@ -1007,6 +1017,8 @@ if(BUILD_SAMPLES)
 			if(EXISTS ${ABS_SAMPLE_DATA_FOLDER})
 				target_link_libraries(${sample} "--preload-file ${ABS_SAMPLE_DATA_FOLDER}@/${SAMPLE_DATA_FOLDER}")
 			endif()
+			file(GLOB SAMPLE_DATA_FILES "${SAMPLE_DATA_FOLDER}*")
+			set_target_properties(${sample} PROPERTIES LINK_DEPENDS "${COMMON_ASSET_FILES};${SAMPLE_DATA_FILES}")
 		endforeach()
 
 		foreach(tutorial ${tutorials})
@@ -1016,10 +1028,14 @@ if(BUILD_SAMPLES)
 			if(EXISTS ${ABS_TUTORIAL_DATA_FOLDER})
 				target_link_libraries("tutorial_${tutorial}" "--preload-file ${ABS_TUTORIAL_DATA_FOLDER}@/${TUTORIAL_DATA_FOLDER}")
 			endif()
+			file(GLOB TUTORIAL_DATA_FILES "${TUTORIAL_DATA_FOLDER}*")
+			set_target_properties(${sample} PROPERTIES LINK_DEPENDS "${COMMON_ASSET_FILES};${TUTORIAL_DATA_FILES}")
 		endforeach()
 
-		set(INVADER_DATA_FOLDER "Samples/invaders/data/")
-		target_link_libraries(invaders "-sALLOW_MEMORY_GROWTH --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/${INVADER_DATA_FOLDER}@/${INVADER_DATA_FOLDER}")
+		set(INVADERS_DATA_FOLDER "Samples/invaders/data/")
+		target_link_libraries(invaders "-sALLOW_MEMORY_GROWTH --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/${INVADERS_DATA_FOLDER}@/${INVADERS_DATA_FOLDER}")
+		file(GLOB INVADERS_DATA_FILES "${INVADERS_DATA_FOLDER}*")
+		set_target_properties(invaders PROPERTIES LINK_DEPENDS "${COMMON_ASSET_FILES};${INVADERS_DATA_FILES}")
 	endif()
 endif()
 
@@ -1091,6 +1107,9 @@ if(BUILD_SAMPLES)
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/demo/data
 		DESTINATION ${SAMPLES_DIR}/basic/demo
+	)
+	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/effects/data
+			DESTINATION ${SAMPLES_DIR}/basic/effects
 	)
 	install(DIRECTORY ${PROJECT_SOURCE_DIR}/Samples/basic/transform/data
 		DESTINATION ${SAMPLES_DIR}/basic/transform

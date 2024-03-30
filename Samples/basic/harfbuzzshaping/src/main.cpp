@@ -37,7 +37,7 @@
 */
 
 // Toggle this variable to enable/disable text shaping.
-constexpr bool EnableTextShaping = true;
+constexpr bool EnableTextShaping = false;
 
 class HarfBuzzEventListener : public Rml::EventListener {
 public:
@@ -104,7 +104,7 @@ int main(int /*argc*/, char** /*argv*/)
 	Rml::SetRenderInterface(Backend::GetRenderInterface());
 
 	// Construct and load the font interface.
-	Rml::UniquePtr<FontEngineInterfaceHarfBuzz> font_interface = nullptr;
+	Rml::UniquePtr<FontEngineInterfaceHarfBuzz> font_interface;
 	if (EnableTextShaping)
 	{
 		font_interface = Rml::MakeUnique<FontEngineInterfaceHarfBuzz>();
@@ -173,8 +173,6 @@ int main(int /*argc*/, char** /*argv*/)
 
 	// Shut down debugger before font interface.
 	Rml::Debugger::Shutdown();
-	if (EnableTextShaping)
-		font_interface.reset();
 
 	// Shutdown RmlUi.
 	Rml::Shutdown();
