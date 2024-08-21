@@ -27,12 +27,20 @@
  */
 
 #include "../../Include/RmlUi/Core/PropertyDictionary.h"
+#include "../../Include/RmlUi/Core/Types.h"
 #include "../../Include/RmlUi/Core/ID.h"
+#include "../../Include/RmlUi/Core/StyleSheetSpecification.h"
 
 namespace Rml {
 
 PropertyDictionary::PropertyDictionary() {}
 
+bool PropertyDictionary::Empty() const
+{
+	return properties.empty() && variables.empty();
+}
+
+// Sets a property on the dictionary. Any existing property with the same id will be overwritten.
 void PropertyDictionary::SetProperty(PropertyId id, const Property& property)
 {
 	RMLUI_ASSERT(id != PropertyId::Invalid);
@@ -64,6 +72,63 @@ const PropertyMap& PropertyDictionary::GetProperties() const
 	return properties;
 }
 
+void PropertyDictionary::SetPropertyVariable(String const& name, const Property &property)
+{
+	variables[name] = property;
+}
+
+void PropertyDictionary::RemovePropertyVariable(String const& name)
+{
+	variables.erase(name);
+}
+
+const Property *PropertyDictionary::GetPropertyVariable(String const& name) const
+{
+	PropertyVariableMap::const_iterator iterator = variables.find(name);
+	if (iterator == variables.end())
+		return nullptr;
+	
+	return &(*iterator).second;
+}
+
+const PropertyVariableTerm* PropertyDictionary::GetDependentShorthand(ShorthandId id) const
+{
+	DependentShorthandMap::const_iterator iter = dependent_shorthands.find(id);
+	if (iter == dependent_shorthands.end())
+		return nullptr;
+	return &iter->second;
+}
+
+void PropertyDictionary::SetDependent(ShorthandId shorthand_id, const PropertyVariableTerm &term)
+{
+	dependent_shorthands[shorthand_id] = term;
+	
+	// Mark dependent properties as pending
+	for (auto id : StyleSheetSpecification::GetShorthandUnderlyingProperties(shorthand_id))
+		properties[id] = Property();
+}
+
+void PropertyDictionary::RemoveDependent(ShorthandId shorthand_id)
+{
+	dependent_shorthands.erase(shorthand_id);
+}
+
+int PropertyDictionary::GetNumPropertyVariables() const
+{
+	return (int)variables.size();
+}
+
+const PropertyVariableMap &PropertyDictionary::GetPropertyVariables() const
+{
+	return variables;
+}
+
+const DependentShorthandMap &PropertyDictionary::GetDependentShorthands() const
+{
+	return dependent_shorthands;
+}
+
+// Imports potentially un-specified properties into the dictionary.
 void PropertyDictionary::Import(const PropertyDictionary& other, int property_specificity)
 {
 	for (const auto& pair : other.properties)
@@ -72,6 +137,12 @@ void PropertyDictionary::Import(const PropertyDictionary& other, int property_sp
 		const Property& property = pair.second;
 		SetProperty(id, property, property_specificity > 0 ? property_specificity : property.specificity);
 	}
+
+	for (const auto& pair : other.variables)
+		SetPropertyVariable(pair.first, pair.second, property_specificity > 0 ? property_specificity : pair.second.specificity);
+
+	for (const auto& pair : other.dependent_shorthands)
+		SetDependent(pair.first, pair.second);
 }
 
 void PropertyDictionary::Merge(const PropertyDictionary& other, int specificity_offset)
@@ -82,11 +153,19 @@ void PropertyDictionary::Merge(const PropertyDictionary& other, int specificity_
 		const Property& property = pair.second;
 		SetProperty(id, property, property.specificity + specificity_offset);
 	}
+
+	for (const auto& pair : other.variables)
+		SetPropertyVariable(pair.first, pair.second, pair.second.specificity + specificity_offset);
+		
+	for (const auto& pair : other.dependent_shorthands)
+		SetDependent(pair.first, pair.second);
 }
 
 void PropertyDictionary::SetSourceOfAllProperties(const SharedPtr<const PropertySource>& property_source)
 {
 	for (auto& p : properties)
+		p.second.source = property_source;
+	for (auto& p : variables)
 		p.second.source = property_source;
 }
 
@@ -97,6 +176,17 @@ void PropertyDictionary::SetProperty(PropertyId id, const Property& property, in
 		return;
 
 	Property& new_property = (properties[id] = property);
+	new_property.specificity = specificity;
+}
+
+void PropertyDictionary::SetPropertyVariable(String const& name, const Property &variable, int specificity)
+{
+	PropertyVariableMap::iterator iterator = variables.find(name);
+	if (iterator != variables.end() &&
+		iterator->second.specificity > specificity)
+		return;
+
+	Property& new_property = (variables[name] = variable);
 	new_property.specificity = specificity;
 }
 

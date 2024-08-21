@@ -34,7 +34,7 @@
 namespace Rml {
 
 /**
-    A property parser that parses an ratio in the format of x/y, like 16/9.
+    A property parser that parses a ratio in the format of x/y, like 16/9.
 
     @author Maximilian Stark
  */

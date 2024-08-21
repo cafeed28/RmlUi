@@ -90,25 +90,49 @@ public:
 	const StringList& GetClassNameList() const;
 
 	/// Sets a local property override on the element to a pre-parsed value.
-	/// @param[in] name The name of the new property.
+	/// @param[in] name The id of the new property.
 	/// @param[in] property The parsed property to set.
 	bool SetProperty(PropertyId id, const Property& property);
+	/// Sets a local shorthand override on the element to a variable-dependent value.
+	/// @param[in] name The id of the new shorthand.
+	/// @param[in] property The raw property to set.
+	bool SetDependentShorthand(ShorthandId id, const PropertyVariableTerm& property);
+	/// Sets a local variable override on the element to a pre-parsed value.
+	/// @param[in] name The name of the new variable.
+	/// @param[in] property The parsed variable to set.
+	bool SetPropertyVariable(String const& name, const Property& variable);
 	/// Removes a local property override on the element; its value will revert to that defined in
 	/// the style sheet.
-	/// @param[in] name The name of the local property definition to remove.
+	/// @param[in] id The id of the local property definition to remove.
 	void RemoveProperty(PropertyId id);
-	/// Returns one of this element's properties. If this element is not defined this property, or a parent cannot
+	/// Removes a local variable override on the element; its value will revert to that defined in
+	/// the style sheet.
+	/// @param[in] name The name of the local variable definition to remove.
+	void RemovePropertyVariable(String const& name);
+	/// Returns one of this element's properties. If this element is not defining this property, or a parent cannot
 	/// be found that we can inherit the property from, the default value will be returned.
 	/// @param[in] name The name of the property to fetch the value for.
 	/// @return The value of this property for this element, or nullptr if no property exists with the given name.
 	const Property* GetProperty(PropertyId id) const;
+	/// Returns one of this element's variables. If this element is not defining this variable, or a parent cannot
+	/// be found that we can inherit the variable from, the default value will be returned.
+	/// @param[in] name The name of the variable to fetch the value for.
+	/// @return The value of this variable for this element, or nullptr if no variable exists with the given id.
+	const Property* GetPropertyVariable(String const& name) const;
 	/// Returns one of this element's properties. If this element is not defined this property, nullptr will be
 	/// returned.
 	/// @param[in] name The name of the property to fetch the value for.
 	/// @return The value of this property for this element, or nullptr if this property has not been explicitly defined for this element.
 	const Property* GetLocalProperty(PropertyId id) const;
+	/// Returns one of this element's variables. If this element is not defined this property, nullptr will be
+	/// returned.
+	/// @param[in] name The name of the variable to fetch the value for.
+	/// @return The value of this variable for this element, or nullptr if this variable has not been explicitly defined for this element.
+	const Property* GetLocalPropertyVariable(String const& name) const;
 	/// Returns the local style properties, excluding any properties from local class.
 	const PropertyMap& GetLocalStyleProperties() const;
+	/// Returns the local style variables, excluding any variables from local class.
+	const PropertyVariableMap& GetLocalStylePropertyVariables() const;
 
 	/// Resolves a numeric value with units of number, percentage, length, or angle to their canonical unit (unit-less, 'px', or 'rad').
 	/// @param[in] value The value to be resolved.
@@ -131,6 +155,9 @@ public:
 	/// Dirties all properties with any of the given units (OR-ed together) on the current element and recursively on all children.
 	void DirtyPropertiesWithUnitsRecursive(Units units);
 
+	// Sets a single variable as dirty.
+	void DirtyPropertyVariable(String const& name);
+
 	/// Returns true if any properties are dirty such that computed values need to be recomputed
 	bool AnyPropertiesDirty() const;
 
@@ -143,15 +170,34 @@ public:
 	/// Note: Modifying the element's style invalidates its iterator.
 	PropertiesIterator Iterate() const;
 
+	UnorderedSet<String> GetDirtyPropertyVariables() const;
+
 private:
 	// Sets a list of properties as dirty.
 	void DirtyProperties(const PropertyIdSet& properties);
 
+	void UpdatePropertyDependencies(PropertyId id);
+	void UpdateShorthandDependencies(ShorthandId id);
+
 	static const Property* GetLocalProperty(PropertyId id, const PropertyDictionary& inline_properties, const ElementDefinition* definition);
 	static const Property* GetProperty(PropertyId id, const Element* element, const PropertyDictionary& inline_properties,
 		const ElementDefinition* definition);
+	static const Property* GetLocalPropertyVariable(String const& name, const PropertyDictionary& inline_properties,
+		const ElementDefinition* definition);
+	static const Property* GetPropertyVariable(String const& name, const Element* element, const PropertyDictionary& inline_properties,
+		const ElementDefinition* definition);
 	static void TransitionPropertyChanges(Element* element, PropertyIdSet& properties, const PropertyDictionary& inline_properties,
 		const ElementDefinition* old_definition, const ElementDefinition* new_definition);
+
+	static void ResolveProperty(PropertyDictionary& output, PropertyId id, const Element* element, const PropertyDictionary& inline_properties,
+		const ElementDefinition* definition);
+	static void ResolveShorthand(PropertyDictionary& output, ShorthandId id, PropertyIdSet& dirty_properties, const Element* element,
+		const PropertyDictionary& inline_properties, const ElementDefinition* definition);
+	static void ResolvePropertyVariable(PropertyDictionary& output, String const& name, UnorderedSet<String>& resolved_set,
+		const UnorderedSet<String>& dirty_set, const Element* element, const PropertyDictionary& inline_properties,
+		const ElementDefinition* definition);
+	static void ResolvePropertyVariableTerm(String& output, const PropertyVariableTerm& term, const Element* element,
+		const PropertyDictionary& inline_properties, const ElementDefinition* definition);
 
 	// Element these properties belong to
 	Element* element;
@@ -161,12 +207,20 @@ private:
 	// This element's current pseudo-classes.
 	PseudoClassMap pseudo_classes;
 
-	// Any properties that have been overridden in this element.
+	// Any properties that have been manually overridden in this element.
+	PropertyDictionary source_inline_properties;
+	// All manually overridden properties and resolved variable-depdendent values.
 	PropertyDictionary inline_properties;
+
 	// The definition of this element, provides applicable properties from the stylesheet.
 	SharedPtr<const ElementDefinition> definition;
 
 	PropertyIdSet dirty_properties;
+	UnorderedSet<String> dirty_variables;
+	UnorderedSet<ShorthandId> dirty_shorthands;
+
+	UnorderedMultimap<String, PropertyId> property_dependencies;
+	UnorderedMultimap<String, ShorthandId> shorthand_dependencies;
 };
 
 } // namespace Rml

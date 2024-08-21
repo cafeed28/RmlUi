@@ -31,6 +31,8 @@
 
 #include "Header.h"
 #include "Property.h"
+#include "ID.h"
+#include "Types.h"
 
 namespace Rml {
 
@@ -39,11 +41,12 @@ namespace Rml {
 
     @author Peter Curry
  */
-
 class RMLUICORE_API PropertyDictionary {
 public:
 	PropertyDictionary();
-
+	
+	bool Empty() const;
+	
 	/// Sets a property on the dictionary. Any existing property with the same id will be overwritten.
 	void SetProperty(PropertyId id, const Property& property);
 	/// Removes a property from the dictionary, if it exists.
@@ -55,6 +58,28 @@ public:
 	int GetNumProperties() const;
 	/// Returns the map of properties in the dictionary.
 	const PropertyMap& GetProperties() const;
+
+	/// Sets a variable on the dictionary. Any existing variable with the same id will be overwritten.
+	void SetPropertyVariable(String const& name, const Property& variable);
+	/// Removes a variable from the dictionary, if it exists.
+	void RemovePropertyVariable(String const& name);
+	/// Returns the value of the variable with the requested id, if one exists.
+	const Property* GetPropertyVariable(String const& name) const;
+
+	/// Returns the value of the dependent shorthand with the requested id, if one exists.
+	const PropertyVariableTerm* GetDependentShorthand(ShorthandId id) const;
+
+	// Register shorthand as dependent on variables
+	void SetDependent(ShorthandId shorthand_id, PropertyVariableTerm const& term);
+	void RemoveDependent(ShorthandId shorthand_id);
+
+	/// Returns the number of variables in the dictionary.
+	int GetNumPropertyVariables() const;
+	/// Returns the map of variables in the dictionary.
+	const PropertyVariableMap& GetPropertyVariables() const;
+	
+	/// Returns the map of variable-dependent shorthands in the dictionary.
+	const DependentShorthandMap& GetDependentShorthands() const;
 
 	/// Imports into the dictionary, and optionally defines the specificity of, potentially
 	/// un-specified properties. In the case of id conflicts, the incoming properties will
@@ -80,8 +105,11 @@ private:
 	// specificity (given by the parameter, not read from the property itself) is at least equal to
 	// the specificity of the conflicting property.
 	void SetProperty(PropertyId id, const Property& property, int specificity);
-
+	void SetPropertyVariable(String const& name, const Property& property, int specificity);
+	
 	PropertyMap properties;
+	PropertyVariableMap variables;
+	DependentShorthandMap dependent_shorthands;
 };
 
 } // namespace Rml

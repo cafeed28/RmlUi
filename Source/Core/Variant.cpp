@@ -47,6 +47,7 @@ Variant::Variant()
 	static_assert(sizeof(FontEffectsPtr) <= LOCAL_DATA_SIZE, "Local data too small for FontEffectsPtr");
 	static_assert(sizeof(ColorStopList) <= LOCAL_DATA_SIZE, "Local data too small for ColorStopList");
 	static_assert(sizeof(BoxShadowList) <= LOCAL_DATA_SIZE, "Local data too small for BoxShadowList");
+	static_assert(sizeof(PropertyVariableTerm) <= LOCAL_DATA_SIZE, "Local data too small for PropertyVariableTerm");
 }
 
 Variant::Variant(const Variant& copy)
@@ -147,6 +148,7 @@ void Variant::Set(const Variant& copy)
 	case FONTEFFECTSPTR: Set(*reinterpret_cast<const FontEffectsPtr*>(copy.data)); break;
 	case COLORSTOPLIST: Set(*reinterpret_cast<const ColorStopList*>(copy.data)); break;
 	case BOXSHADOWLIST: Set(*reinterpret_cast<const BoxShadowList*>(copy.data)); break;
+	case PROPERTYVARIABLETERM: Set(*reinterpret_cast<const PropertyVariableTerm*>(copy.data)); break;
 	default:
 		memcpy(data, copy.data, LOCAL_DATA_SIZE);
 		type = copy.type;
@@ -168,6 +170,7 @@ void Variant::Set(Variant&& other)
 	case FONTEFFECTSPTR: Set(std::move(*reinterpret_cast<FontEffectsPtr*>(other.data))); break;
 	case COLORSTOPLIST: Set(std::move(*reinterpret_cast<ColorStopList*>(other.data))); break;
 	case BOXSHADOWLIST: Set(std::move(*reinterpret_cast<BoxShadowList*>(other.data))); break;
+	case PROPERTYVARIABLETERM: Set(std::move(*reinterpret_cast<PropertyVariableTerm*>(other.data))); break;
 	default:
 		memcpy(data, other.data, LOCAL_DATA_SIZE);
 		type = other.type;
@@ -498,6 +501,32 @@ void Variant::Set(BoxShadowList&& value)
 	}
 }
 
+void Variant::Set(const PropertyVariableTerm& value)
+{
+	if (type == PROPERTYVARIABLETERM)
+	{
+		*(PropertyVariableTerm*)data = value;
+	}
+	else
+	{
+		type = PROPERTYVARIABLETERM;
+		new (data) PropertyVariableTerm(value);
+	}
+}
+
+void Variant::Set(PropertyVariableTerm&& value)
+{
+	if (type == PROPERTYVARIABLETERM)
+	{
+		(*(PropertyVariableTerm*)data) = std::move(value);
+	}
+	else
+	{
+		type = PROPERTYVARIABLETERM;
+		new (data) PropertyVariableTerm(std::move(value));
+	}
+}
+
 Variant& Variant::operator=(const Variant& copy)
 {
 	if (this == &copy)
@@ -552,6 +581,7 @@ bool Variant::operator==(const Variant& other) const
 	case FONTEFFECTSPTR: return DEFAULT_VARIANT_COMPARE(FontEffectsPtr);
 	case COLORSTOPLIST: return DEFAULT_VARIANT_COMPARE(ColorStopList);
 	case BOXSHADOWLIST: return DEFAULT_VARIANT_COMPARE(BoxShadowList);
+	case PROPERTYVARIABLETERM: return DEFAULT_VARIANT_COMPARE(PropertyVariableTerm);
 	case NONE: return true;
 	}
 	RMLUI_ERRORMSG("Variant comparison not implemented for this type.");

@@ -108,6 +108,42 @@ const Property* ElementStyle::GetProperty(PropertyId id, const Element* element,
 	return property->GetDefaultValue();
 }
 
+const Property* ElementStyle::GetLocalPropertyVariable(String const& name, const PropertyDictionary& inline_properties,
+	const ElementDefinition* definition)
+{
+	// Check for overriding local properties.
+	const Property* property = inline_properties.GetPropertyVariable(name);
+	if (property)
+		return property;
+
+	// Check for a property variable defined in an RCSS rule.
+	if (definition)
+		return definition->GetPropertyVariable(name);
+
+	return nullptr;
+}
+
+const Property* ElementStyle::GetPropertyVariable(String const& name, const Element* element, const PropertyDictionary& inline_properties,
+	const ElementDefinition* definition)
+{
+	const Property* local_property = GetLocalPropertyVariable(name, inline_properties, definition);
+	if (local_property)
+		return local_property;
+
+	Element* parent = element->GetParentNode();
+	while (parent)
+	{
+		const Property* parent_property = parent->GetStyle()->GetLocalPropertyVariable(name);
+		if (parent_property)
+			return parent_property;
+
+		parent = parent->GetParentNode();
+	}
+
+	// No property variable available!
+	return nullptr;
+}
+
 void ElementStyle::TransitionPropertyChanges(Element* element, PropertyIdSet& properties, const PropertyDictionary& inline_properties,
 	const ElementDefinition* old_definition, const ElementDefinition* new_definition)
 {
@@ -130,11 +166,25 @@ void ElementStyle::TransitionPropertyChanges(Element* element, PropertyIdSet& pr
 		if (!transition_list.none)
 		{
 			static const PropertyDictionary empty_properties;
+			PropertyDictionary new_inline_properties;
+
+			// resolve all variables and dependent shorthands in the new definition
+			UnorderedSet<String> resolved;
+			auto dirty = new_definition->GetPropertyVariableNames();
+			for (auto const& it : dirty)
+				ResolvePropertyVariable(new_inline_properties, it, resolved, dirty, element, empty_properties, new_definition);
+
+			PropertyIdSet dirty_properties;
+			for (auto const& it : new_definition->GetDependentShorthandIds())
+				ResolveShorthand(new_inline_properties, it, dirty_properties, element, new_inline_properties, new_definition);
 
 			auto add_transition = [&](const Transition& transition) {
 				bool transition_added = false;
 				const Property* start_value = GetProperty(transition.id, element, inline_properties, old_definition);
-				const Property* target_value = GetProperty(transition.id, element, empty_properties, new_definition);
+
+				ResolveProperty(new_inline_properties, transition.id, element, new_inline_properties, new_definition);
+				const Property* target_value = GetProperty(transition.id, element, new_inline_properties, new_definition);
+
 				if (start_value && target_value && (*start_value != *target_value))
 					transition_added = element->StartTransition(transition, *start_value, *target_value);
 				return transition_added;
@@ -182,12 +232,24 @@ void ElementStyle::UpdateDefinition()
 	if (new_definition != definition)
 	{
 		PropertyIdSet changed_properties;
+		UnorderedSet<ShorthandId> changed_dependent_shorthands;
+		UnorderedSet<String> changed_variables;
 
 		if (definition)
+		{
 			changed_properties = definition->GetPropertyIds();
+			changed_dependent_shorthands = definition->GetDependentShorthandIds();
+			changed_variables = definition->GetPropertyVariableNames();
+		}
 
 		if (new_definition)
+		{
 			changed_properties |= new_definition->GetPropertyIds();
+			auto const& new_vars = new_definition->GetPropertyVariableNames();
+			changed_variables.insert(new_vars.begin(), new_vars.end());
+			auto const& new_deps = new_definition->GetDependentShorthandIds();
+			changed_dependent_shorthands.insert(new_deps.begin(), new_deps.end());
+		}
 
 		if (definition && new_definition)
 		{
@@ -208,7 +270,40 @@ void ElementStyle::UpdateDefinition()
 
 		definition = new_definition;
 
+		for (auto const& name : changed_variables)
+			DirtyPropertyVariable(name);
+
+		for (auto const& id : changed_dependent_shorthands)
+		{
+			dirty_shorthands.insert(id);
+			UpdateShorthandDependencies(id);
+		}
+
 		DirtyProperties(changed_properties);
+		for (auto const& id : changed_properties)
+			UpdatePropertyDependencies(id);
+
+		// cleanup resolved properties
+		auto props = inline_properties.GetProperties();
+		for (auto const& it : props)
+		{
+			auto prop = source_inline_properties.GetProperty(it.first);
+			if (!prop || prop->unit == Unit::PROPERTYVARIABLETERM)
+			{
+				inline_properties.RemoveProperty(it.first);
+				DirtyProperty(it.first);
+			}
+		}
+		auto vars = inline_properties.GetPropertyVariables();
+		for (auto const& it : vars)
+		{
+			auto var = source_inline_properties.GetPropertyVariable(it.first);
+			if (!var || var->unit == Unit::PROPERTYVARIABLETERM)
+			{
+				inline_properties.RemovePropertyVariable(it.first);
+				dirty_variables.insert(it.first);
+			}
+		}
 	}
 }
 
@@ -314,19 +409,57 @@ bool ElementStyle::SetProperty(PropertyId id, const Property& property)
 	if (!new_property.definition)
 		return false;
 
-	inline_properties.SetProperty(id, new_property);
+	source_inline_properties.SetProperty(id, new_property);
+
+	// directly copy to resolved values if not variable-dependent
+	if (property.unit != Unit::PROPERTYVARIABLETERM)
+		inline_properties.SetProperty(id, new_property);
+
+	UpdatePropertyDependencies(id);
+
 	DirtyProperty(id);
+
+	return true;
+}
+
+bool ElementStyle::SetDependentShorthand(ShorthandId id, const PropertyVariableTerm& property)
+{
+	source_inline_properties.SetDependent(id, property);
+	UpdateShorthandDependencies(id);
+	dirty_shorthands.insert(id);
+	return true;
+}
+
+bool ElementStyle::SetPropertyVariable(const String& name, const Property& variable)
+{
+	source_inline_properties.SetPropertyVariable(name, variable);
+	// directly copy to resolved values if not variable-dependent
+	if (variable.unit != Unit::PROPERTYVARIABLETERM)
+		inline_properties.SetPropertyVariable(name, variable);
+
+	DirtyPropertyVariable(name);
 
 	return true;
 }
 
 void ElementStyle::RemoveProperty(PropertyId id)
 {
-	int size_before = inline_properties.GetNumProperties();
+	int size_before = source_inline_properties.GetNumProperties();
+	source_inline_properties.RemoveProperty(id);
 	inline_properties.RemoveProperty(id);
+	UpdatePropertyDependencies(id);
 
-	if (inline_properties.GetNumProperties() != size_before)
+	if (source_inline_properties.GetNumProperties() != size_before)
 		DirtyProperty(id);
+}
+
+void ElementStyle::RemovePropertyVariable(const String& name)
+{
+	int size_before = source_inline_properties.GetNumPropertyVariables();
+	source_inline_properties.RemovePropertyVariable(name);
+
+	if (source_inline_properties.GetNumPropertyVariables() != size_before)
+		DirtyPropertyVariable(name);
 }
 
 const Property* ElementStyle::GetProperty(PropertyId id) const
@@ -334,14 +467,29 @@ const Property* ElementStyle::GetProperty(PropertyId id) const
 	return GetProperty(id, element, inline_properties, definition.get());
 }
 
+const Property* ElementStyle::GetPropertyVariable(const String& name) const
+{
+	return GetPropertyVariable(name, element, inline_properties, definition.get());
+}
+
 const Property* ElementStyle::GetLocalProperty(PropertyId id) const
 {
 	return GetLocalProperty(id, inline_properties, definition.get());
 }
 
+const Property* ElementStyle::GetLocalPropertyVariable(const String& name) const
+{
+	return GetLocalPropertyVariable(name, inline_properties, definition.get());
+}
+
 const PropertyMap& ElementStyle::GetLocalStyleProperties() const
 {
-	return inline_properties.GetProperties();
+	return source_inline_properties.GetProperties();
+}
+
+const PropertyVariableMap& ElementStyle::GetLocalStylePropertyVariables() const
+{
+	return source_inline_properties.GetPropertyVariables();
 }
 
 static float ComputeLength(NumericValue value, Element* element)
@@ -466,9 +614,14 @@ void ElementStyle::DirtyPropertiesWithUnitsRecursive(Units units)
 		element->GetChild(i)->GetStyle()->DirtyPropertiesWithUnitsRecursive(units);
 }
 
+void ElementStyle::DirtyPropertyVariable(String const& name)
+{
+	dirty_variables.insert(name);
+}
+
 bool ElementStyle::AnyPropertiesDirty() const
 {
-	return !dirty_properties.Empty();
+	return !dirty_properties.Empty() || !dirty_variables.empty();
 }
 
 PropertiesIterator ElementStyle::Iterate() const
@@ -496,6 +649,11 @@ PropertiesIterator ElementStyle::Iterate() const
 	return PropertiesIterator(it_style_begin, it_style_end, it_definition, it_definition_end);
 }
 
+UnorderedSet<String> ElementStyle::GetDirtyPropertyVariables() const
+{
+	return dirty_variables;
+}
+
 void ElementStyle::DirtyProperty(PropertyId id)
 {
 	dirty_properties.Insert(id);
@@ -506,102 +664,286 @@ void ElementStyle::DirtyProperties(const PropertyIdSet& properties)
 	dirty_properties |= properties;
 }
 
+void ElementStyle::ResolveProperty(PropertyDictionary& output, PropertyId id, const Element* element, const PropertyDictionary& inline_properties,
+	const ElementDefinition* definition)
+{
+	auto prop = GetLocalProperty(id, inline_properties, definition);
+	if (!prop)
+	{
+		output.RemoveProperty(id);
+	}
+	else if (prop->unit == Unit::PROPERTYVARIABLETERM)
+	{
+		String string_value;
+		ResolvePropertyVariableTerm(string_value, prop->value.GetReference<PropertyVariableTerm>(), element, inline_properties, definition);
+		auto property_def = StyleSheetSpecification::GetProperty(id);
+		if (property_def)
+		{
+			Property parsed_value;
+			if (property_def->ParseValue(parsed_value, string_value))
+				output.SetProperty(id, parsed_value);
+			else
+				Log::Message(Log::LT_ERROR, "Failed to parse RCSS variable-dependent property '%s' with value '%s'.",
+					StyleSheetSpecification::GetPropertyName(id).c_str(), string_value.c_str());
+		}
+	}
+}
+
+void ElementStyle::ResolveShorthand(PropertyDictionary& output, ShorthandId id, PropertyIdSet& dirty_properties, const Element* element,
+	const PropertyDictionary& inline_properties, const ElementDefinition* definition)
+{
+	auto shorthand = inline_properties.GetDependentShorthand(id);
+	if (definition && !shorthand)
+		shorthand = definition->GetDependentShorthand(id);
+
+	auto underlying = StyleSheetSpecification::GetShorthandUnderlyingProperties(id);
+
+	if (!shorthand)
+	{
+		// clear out old values
+		for (auto const& prop : underlying)
+			output.RemoveProperty(prop);
+		return;
+	}
+
+	String string_value;
+	ResolvePropertyVariableTerm(string_value, *shorthand, element, inline_properties, definition);
+
+	StyleSheetSpecification::ParseShorthandDeclaration(output, id, string_value);
+	dirty_properties |= underlying;
+}
+
+void ElementStyle::ResolvePropertyVariable(PropertyDictionary& output, const String& name, UnorderedSet<String>& resolved_set,
+	const UnorderedSet<String>& dirty_set, const Element* element, const PropertyDictionary& inline_properties, const ElementDefinition* definition)
+{
+	if (!resolved_set.insert(name).second)
+		return;
+
+	auto var = GetLocalPropertyVariable(name, inline_properties, definition);
+	if (!var)
+	{
+		output.RemovePropertyVariable(name);
+	}
+	else if (var->unit == Unit::PROPERTYVARIABLETERM)
+	{
+		// resolve dirty variable dependencies first
+		auto const& term = var->value.GetReference<PropertyVariableTerm>();
+		for (auto const& atom : term)
+		{
+			if (!atom.variable.empty() && dirty_set.find(atom.variable) != dirty_set.end())
+				ResolvePropertyVariable(output, atom.variable, resolved_set, dirty_set, element, inline_properties, definition);
+		}
+
+		// resolve actual variable using output dictionary as inline source!
+		String string_value;
+		ResolvePropertyVariableTerm(string_value, term, element, output, definition);
+		output.SetPropertyVariable(name, Property(string_value, Unit::STRING));
+	}
+}
+
+void ElementStyle::ResolvePropertyVariableTerm(String& output, const PropertyVariableTerm& term, const Element* element,
+	const PropertyDictionary& inline_properties, const ElementDefinition* definition)
+{
+	StringList atoms;
+	for (auto const& atom : term)
+	{
+		if (!atom.variable.empty())
+		{
+			const Property* var = GetPropertyVariable(atom.variable, element, inline_properties, definition);
+			if (var)
+			{
+				if (var->unit == Unit::PROPERTYVARIABLETERM)
+				{
+					if (atom.constant.empty())
+						Log::Message(Log::LT_ERROR, "Failed to resolve RCSS variable '%s'. Has not been resolved yet.", atom.variable.c_str());
+				}
+				else
+				{
+					atoms.push_back(var->ToString());
+				}
+			}
+			else
+			{
+				if (atom.constant.empty())
+					Log::Message(Log::LT_ERROR, "Failed to resolve RCSS variable '%s'. No fallback was provided.", atom.variable.c_str());
+
+				atoms.push_back(atom.constant);
+			}
+		}
+		else
+			atoms.push_back(atom.constant);
+	}
+
+	// Join without any actual delimiter, thus \0
+	StringUtilities::JoinString(output, atoms, '\0');
+}
+
+void ElementStyle::UpdatePropertyDependencies(PropertyId id)
+{
+	for (auto iter = property_dependencies.begin(); iter != property_dependencies.end();)
+	{
+		if (iter->second == id)
+			iter = property_dependencies.erase(iter);
+		else
+			++iter;
+	}
+
+	auto property = GetProperty(id);
+
+	if (property && property->unit == Unit::PROPERTYVARIABLETERM)
+	{
+		auto term = property->value.GetReference<PropertyVariableTerm>();
+		for (auto const& atom : term)
+			if (!atom.variable.empty())
+				property_dependencies.insert(std::make_pair(atom.variable, id));
+	}
+}
+
+void ElementStyle::UpdateShorthandDependencies(ShorthandId id)
+{
+	for (auto iter = shorthand_dependencies.begin(); iter != shorthand_dependencies.end();)
+	{
+		if (iter->second == id)
+			iter = shorthand_dependencies.erase(iter);
+		else
+			++iter;
+	}
+
+	auto shorthand = source_inline_properties.GetDependentShorthand(id);
+	if (definition && !shorthand)
+		shorthand = definition->GetDependentShorthand(id);
+
+	if (shorthand)
+		for (auto const& atom : *shorthand)
+			if (!atom.variable.empty())
+				shorthand_dependencies.insert(std::make_pair(atom.variable, id));
+}
+
 PropertyIdSet ElementStyle::ComputeValues(Style::ComputedValues& values, const Style::ComputedValues* parent_values,
 	const Style::ComputedValues* document_values, bool values_are_default_initialized, float dp_ratio, Vector2f vp_dimensions)
 {
-	if (dirty_properties.Empty())
-		return PropertyIdSet();
-
-	RMLUI_ZoneScopedC(0xFF7F50);
-
-	// Generally, this is how it works:
-	//   1. Assign default values (clears any removed properties)
-	//   2. Inherit inheritable values from parent
-	//   3. Assign any local properties (from inline style or stylesheet)
-	//   4. Dirty properties in children that are inherited
-
-	const float font_size_before = values.font_size();
-	const Style::LineHeight line_height_before = values.line_height();
-
-	// The next flag is just a small optimization, if the element was just created we don't need to copy all the default values.
-	if (!values_are_default_initialized)
+	// update variables and dirty relevant properties
+	if (!dirty_variables.empty())
 	{
-		// This needs to be done in case some properties were removed and thus not in our local style anymore.
-		// If we skipped this, the old dirty value would be unmodified, instead, now it is set to its default value.
-		// Strictly speaking, we only really need to do this for the dirty, non-inherited values. However, in most
-		// cases it seems simply assigning all non-inherited values is faster than iterating the dirty properties.
-		values.CopyNonInherited(DefaultComputedValues);
-	}
-
-	if (parent_values)
-		values.CopyInherited(*parent_values);
-	else if (!values_are_default_initialized)
-		values.CopyInherited(DefaultComputedValues);
-
-	bool dirty_em_properties = false;
-
-	// Always do font-size first if dirty, because of em-relative values
-	if (dirty_properties.Contains(PropertyId::FontSize))
-	{
-		if (auto p = GetLocalProperty(PropertyId::FontSize))
-			values.font_size(ComputeFontsize(p->GetNumericValue(), values, parent_values, document_values, dp_ratio, vp_dimensions));
-		else if (parent_values)
-			values.font_size(parent_values->font_size());
-
-		if (font_size_before != values.font_size())
+		UnorderedSet<String> resolved_set;
+		for (auto const& name : dirty_variables)
 		{
-			dirty_em_properties = true;
-			dirty_properties.Insert(PropertyId::LineHeight);
+			ResolvePropertyVariable(inline_properties, name, resolved_set, dirty_variables, element, source_inline_properties, definition.get());
+
+			auto dependent_properties = property_dependencies.equal_range(name);
+			for (auto it = dependent_properties.first; it != dependent_properties.second; ++it)
+				DirtyProperty(it->second);
+
+			auto dependent_shorthands = shorthand_dependencies.equal_range(name);
+			for (auto it = dependent_shorthands.first; it != dependent_shorthands.second; ++it)
+				dirty_shorthands.insert(it->second);
 		}
 	}
-	else
+
+	if (!dirty_shorthands.empty())
 	{
-		values.font_size(font_size_before);
+		for (auto const& id : dirty_shorthands)
+			ResolveShorthand(inline_properties, id, dirty_properties, element, source_inline_properties, definition.get());
+
+		dirty_shorthands.clear();
 	}
 
-	const float font_size = values.font_size();
-	const float document_font_size = (document_values ? document_values->font_size() : DefaultComputedValues.font_size());
-
-	// Since vertical-align depends on line-height we compute this before iteration
-	if (dirty_properties.Contains(PropertyId::LineHeight))
+	if (!dirty_properties.Empty())
 	{
-		if (auto p = GetLocalProperty(PropertyId::LineHeight))
+		RMLUI_ZoneScopedC(0xFF7F50);
+
+		// resolve potentially variable-dependent properties
+		for (auto const& id : dirty_properties)
+			ResolveProperty(inline_properties, id, element, source_inline_properties, definition.get());
+
+		// Generally, this is how it works:
+		//   1. Assign default values (clears any removed properties)
+		//   2. Inherit inheritable values from parent
+		//   3. Assign any local properties (from inline style or stylesheet)
+		//   4. Dirty properties in children that are inherited
+
+		const float font_size_before = values.font_size();
+		const Style::LineHeight line_height_before = values.line_height();
+
+		// The next flag is just a small optimization, if the element was just created we don't need to copy all the default values.
+		if (!values_are_default_initialized)
 		{
-			values.line_height(ComputeLineHeight(p, font_size, document_font_size, dp_ratio, vp_dimensions));
+			// This needs to be done in case some properties were removed and thus not in our local style anymore.
+			// If we skipped this, the old dirty value would be unmodified, instead, now it is set to its default value.
+			// Strictly speaking, we only really need to do this for the dirty, non-inherited values. However, in most
+			// cases it seems simply assigning all non-inherited values is faster than iterating the dirty properties.
+			values.CopyNonInherited(DefaultComputedValues);
 		}
-		else if (parent_values)
+
+		if (parent_values)
+			values.CopyInherited(*parent_values);
+		else if (!values_are_default_initialized)
+			values.CopyInherited(DefaultComputedValues);
+
+		bool dirty_em_properties = false;
+
+		// Always do font-size first if dirty, because of em-relative values
+		if (dirty_properties.Contains(PropertyId::FontSize))
 		{
-			// Line height has a special inheritance case for numbers/percent: they inherit them directly instead of computed length, but for lengths,
-			// they inherit the length. See CSS specs for details. Percent is already converted to number.
-			if (parent_values->line_height().inherit_type == Style::LineHeight::Number)
-				values.line_height(Style::LineHeight(font_size * parent_values->line_height().inherit_value, Style::LineHeight::Number,
-					parent_values->line_height().inherit_value));
-			else
-				values.line_height(parent_values->line_height());
+			if (auto p = GetLocalProperty(PropertyId::FontSize))
+				values.font_size(ComputeFontsize(p->GetNumericValue(), values, parent_values, document_values, dp_ratio, vp_dimensions));
+			else if (parent_values)
+				values.font_size(parent_values->font_size());
+
+			if (font_size_before != values.font_size())
+			{
+				dirty_em_properties = true;
+				dirty_properties.Insert(PropertyId::LineHeight);
+			}
+		}
+		else
+		{
+			values.font_size(font_size_before);
 		}
 
-		if (line_height_before.value != values.line_height().value || line_height_before.inherit_value != values.line_height().inherit_value)
-			dirty_properties.Insert(PropertyId::VerticalAlign);
-	}
-	else
-	{
-		values.line_height(line_height_before);
-	}
+		const float font_size = values.font_size();
+		const float document_font_size = (document_values ? document_values->font_size() : DefaultComputedValues.font_size());
 
-	bool dirty_font_face_handle = false;
+		// Since vertical-align depends on line-height we compute this before iteration
+		if (dirty_properties.Contains(PropertyId::LineHeight))
+		{
+			if (auto p = GetLocalProperty(PropertyId::LineHeight))
+			{
+				values.line_height(ComputeLineHeight(p, font_size, document_font_size, dp_ratio, vp_dimensions));
+			}
+			else if (parent_values)
+			{
+				// Line height has a special inheritance case for numbers/percent: they inherit them directly instead of computed length, but for
+				// lengths, they inherit the length. See CSS specs for details. Percent is already converted to number.
+				if (parent_values->line_height().inherit_type == Style::LineHeight::Number)
+					values.line_height(Style::LineHeight(font_size * parent_values->line_height().inherit_value, Style::LineHeight::Number,
+						parent_values->line_height().inherit_value));
+				else
+					values.line_height(parent_values->line_height());
+			}
 
-	for (auto it = Iterate(); !it.AtEnd(); ++it)
-	{
-		auto name_property_pair = *it;
-		const PropertyId id = name_property_pair.first;
-		const Property* p = &name_property_pair.second;
+			if (line_height_before.value != values.line_height().value || line_height_before.inherit_value != values.line_height().inherit_value)
+				dirty_properties.Insert(PropertyId::VerticalAlign);
+		}
+		else
+		{
+			values.line_height(line_height_before);
+		}
 
-		if (dirty_em_properties && p->unit == Unit::EM)
-			dirty_properties.Insert(id);
+		bool dirty_font_face_handle = false;
 
-		using namespace Style;
+		for (auto it = Iterate(); !it.AtEnd(); ++it)
+		{
+			auto name_property_pair = *it;
+			const PropertyId id = name_property_pair.first;
+			const Property* p = &name_property_pair.second;
 
-		// clang-format off
+			if (dirty_em_properties && p->unit == Unit::EM)
+				dirty_properties.Insert(id);
+
+			using namespace Style;
+
+			// clang-format off
 		switch (id)
 		{
 		case PropertyId::MarginTop:
@@ -904,31 +1246,34 @@ PropertyIdSet ElementStyle::ComputeValues(Style::ComputedValues& values, const S
 		case PropertyId::MaxNumIds:
 			break;
 		}
-		// clang-format on
-	}
+			// clang-format on
+		}
 
-	// The font-face handle is nulled when local font properties are set. In that case we need to retrieve a new handle.
-	if (dirty_font_face_handle)
-	{
-		RMLUI_ZoneScopedN("FontFaceHandle");
-		values.font_face_handle(
-			GetFontEngineInterface()->GetFontFaceHandle(values.font_family(), values.font_style(), values.font_weight(), (int)values.font_size()));
+		// The font-face handle is nulled when local font properties are set. In that case we need to retrieve a new handle.
+		if (dirty_font_face_handle)
+		{
+			RMLUI_ZoneScopedN("FontFaceHandle");
+			values.font_face_handle(GetFontEngineInterface()->GetFontFaceHandle(values.font_family(), values.font_style(), values.font_weight(),
+				(int)values.font_size()));
+		}
 	}
 
 	// Next, pass inheritable dirty properties onto our children
 	PropertyIdSet dirty_inherited_properties = (dirty_properties & StyleSheetSpecification::GetRegisteredInheritedProperties());
 
-	if (!dirty_inherited_properties.Empty())
+	if (!dirty_inherited_properties.Empty() || !dirty_variables.empty())
 	{
 		for (int i = 0; i < element->GetNumChildren(true); i++)
 		{
 			auto child = element->GetChild(i);
 			child->GetStyle()->dirty_properties |= dirty_inherited_properties;
+			child->GetStyle()->dirty_variables.insert(dirty_variables.begin(), dirty_variables.end());
 		}
 	}
 
 	PropertyIdSet result(std::move(dirty_properties));
 	dirty_properties.Clear();
+	dirty_variables.clear();
 	return result;
 }
 

@@ -114,6 +114,8 @@ public:
 	/// Parses a shorthand declaration, setting any parsed and validated properties on the given dictionary.
 	/// @return True if all properties were parsed successfully, false otherwise.
 	bool ParseShorthandDeclaration(PropertyDictionary& dictionary, ShorthandId shorthand_id, const String& property_value) const;
+	/// Parse variable declaration by name.
+	bool ParsePropertyVariableDeclaration(PropertyDictionary& dictionary, const String& property_name, const String& property_value) const;
 
 	/// Sets all undefined properties in the dictionary to their defaults.
 	/// @param dictionary[in-out] The dictionary to set the default values on.
@@ -138,6 +140,8 @@ private:
 
 	enum class SplitOption { None, Whitespace, Comma };
 	bool ParsePropertyValues(StringList& values_list, const String& values, SplitOption split_option) const;
+	// Returns true if a variable usage was encoutered, false if not (=plain values)
+	bool ParsePropertyVariableTerm(PropertyVariableTerm& term, const StringList& values_list) const;
 
 	friend class Rml::StyleSheetSpecification;
 	friend class TestPropertySpecification;

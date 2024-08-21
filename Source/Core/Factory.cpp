@@ -180,6 +180,7 @@ struct DefaultInstancers {
 	DataViewInstancerDefault<DataViewVisible> data_view_visible;
 	DataViewInstancerDefault<DataViewRml> data_view_rml;
 	DataViewInstancerDefault<DataViewStyle> data_view_style;
+	DataViewInstancerDefault<DataViewStyleVariable> data_view_style_variable;
 	DataViewInstancerDefault<DataViewText> data_view_text;
 	DataViewInstancerDefault<DataViewValue> data_view_value;
 	DataViewInstancerDefault<DataViewChecked> data_view_checked;
@@ -287,6 +288,7 @@ bool Factory::Initialise()
 	RegisterDataViewInstancer(&default_instancers->data_view_visible,        "visible", false);
 	RegisterDataViewInstancer(&default_instancers->data_view_rml,            "rml",     false);
 	RegisterDataViewInstancer(&default_instancers->data_view_style,          "style",   false);
+	RegisterDataViewInstancer(&default_instancers->data_view_style_variable, "var",     false);
 	RegisterDataViewInstancer(&default_instancers->data_view_text,           "text",    false);
 	RegisterDataViewInstancer(&default_instancers->data_view_value,          "value",   false);
 	RegisterDataViewInstancer(&default_instancers->data_view_checked,        "checked", false);

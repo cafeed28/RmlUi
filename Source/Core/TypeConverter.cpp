@@ -305,4 +305,29 @@ bool TypeConverter<String, Colourb>::Convert(const String& src, Colourb& dest)
 	return PropertyParserColour::ParseColour(dest, src);
 }
 
+bool TypeConverter<PropertyVariableTerm, PropertyVariableTerm>::Convert(const PropertyVariableTerm& src, PropertyVariableTerm& dest)
+{
+	dest = src;
+	return true;
+}
+
+bool TypeConverter<PropertyVariableTerm, String>::Convert(const PropertyVariableTerm& src, String& dest)
+{
+	StringList parts;
+	for (const auto& it : src)
+	{
+		if (!it.variable.empty())
+		{
+			parts.push_back("var(" + it.variable + ")");
+		}
+		else
+		{
+			parts.push_back(it.constant);
+		}
+	}
+
+	StringUtilities::JoinString(dest, parts, ' ');
+	return true;
+}
+
 } // namespace Rml

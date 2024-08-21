@@ -227,6 +227,12 @@ bool PropertySpecification::ParsePropertyDeclaration(PropertyDictionary& diction
 {
 	RMLUI_ZoneScoped;
 
+	// If matches the shape of a variable declaration, try to handle as such
+	if (property_name.size() > 2 && property_name[0] == '-' && property_name[1] == '-')
+	{
+		return ParsePropertyVariableDeclaration(dictionary, property_name, property_value);
+	}
+
 	// Try as a property first
 	PropertyId property_id = property_map->GetId(property_name);
 	if (property_id != PropertyId::Invalid)
@@ -251,7 +257,16 @@ bool PropertySpecification::ParsePropertyDeclaration(PropertyDictionary& diction
 	if (!ParsePropertyValues(property_values, property_value, SplitOption::None) || property_values.empty())
 		return false;
 
+	PropertyVariableTerm term;
 	Property new_property;
+	if (ParsePropertyVariableTerm(term, property_values))
+	{
+		new_property = Property(std::move(term), Unit::PROPERTYVARIABLETERM);
+		new_property.definition = property_definition;
+		dictionary.SetProperty(property_id, new_property);
+		return true;
+	}
+
 	if (!property_definition->ParseValue(new_property, property_values[0]))
 		return false;
 
@@ -271,6 +286,13 @@ bool PropertySpecification::ParseShorthandDeclaration(PropertyDictionary& dictio
 	StringList property_values;
 	if (!ParsePropertyValues(property_values, property_value, split_option) || property_values.empty())
 		return false;
+
+	PropertyVariableTerm term;
+	if (ParsePropertyVariableTerm(term, property_values))
+	{
+		dictionary.SetDependent(shorthand_id, term);
+		return true;
+	}
 
 	// Handle the special behavior of the flex shorthand first, otherwise it acts like 'FallThrough'.
 	if (shorthand_definition->type == ShorthandType::Flex && !property_values.empty())
@@ -439,6 +461,38 @@ bool PropertySpecification::ParseShorthandDeclaration(PropertyDictionary& dictio
 	return true;
 }
 
+bool PropertySpecification::ParsePropertyVariableDeclaration(PropertyDictionary& dictionary, const String& property_name,
+	const String& property_value) const
+{
+	if (!(property_name.size() > 2 && property_name[0] == '-' && property_name[1] == '-'))
+		return false;
+
+	StringList property_values;
+	if (!ParsePropertyValues(property_values, property_value, SplitOption::Whitespace))
+		return false;
+
+	if (property_values.empty())
+		return true;
+
+	PropertyVariableTerm term;
+	bool any_variable = ParsePropertyVariableTerm(term, property_values);
+
+	// Only store original variable term when there is another variable inside that needs resolving
+	if (any_variable)
+	{
+		dictionary.SetPropertyVariable(property_name, Property(std::move(term), Unit::PROPERTYVARIABLETERM));
+	}
+	else
+	{
+		String joined;
+		StringUtilities::JoinString(joined, property_values, ' ');
+
+		dictionary.SetPropertyVariable(property_name, Property(joined, Unit::STRING));
+	}
+	return true;
+}
+
+// Sets all undefined properties in the dictionary to their defaults.
 void PropertySpecification::SetPropertyDefaults(PropertyDictionary& dictionary) const
 {
 	for (const auto& property : properties)
@@ -611,6 +665,111 @@ bool PropertySpecification::ParsePropertyValues(StringList& values_list, const S
 		SubmitValue();
 
 	return true;
+}
+
+bool PropertySpecification::ParsePropertyVariableTerm(PropertyVariableTerm& term, const StringList& values_list) const
+{
+	bool any_var = false;
+	for (const auto& it : values_list)
+	{
+		size_t cursor = 0;
+		size_t len = it.size();
+		auto Consume = [&](char letter) {
+			if (cursor >= len || it[cursor] != letter)
+				return false;
+			cursor++;
+			return true;
+		};
+
+		size_t prev = 0;
+
+		while (cursor < len)
+		{
+			if ((cursor == 0 || Consume(' ') || Consume('(') || Consume(',')) && Consume('v') && Consume('a') && Consume('r') && Consume('(') &&
+				Consume('-') && Consume('-'))
+			{
+				// add prefix
+				if (cursor >= 6 && (cursor - 6) - prev > 0)
+				{
+					PropertyVariableTermAtom a;
+					a.variable = String();
+					a.constant = it.substr(prev, (cursor - 6) - prev);
+					term.push_back(a);
+				}
+
+				size_t nameStart = cursor - 2;
+				while (cursor != len && it[cursor] != ',' && it[cursor] != ')')
+					cursor++;
+				size_t nameEnd = cursor;
+
+				if (it[cursor] == ',')
+				{
+					cursor++;
+
+					size_t fallbackStart = cursor;
+					while (cursor != len && it[cursor] != ')')
+						cursor++;
+					size_t fallbackEnd = cursor;
+
+					if (it[cursor] == ')')
+					{
+						cursor++;
+						PropertyVariableTermAtom a;
+						a.variable = StringUtilities::StripWhitespace(it.substr(nameStart, nameEnd - nameStart));
+						a.constant = StringUtilities::StripWhitespace(it.substr(fallbackStart, fallbackEnd - fallbackStart));
+						term.push_back(a);
+						any_var = true;
+					}
+					else
+					{
+						// parse error
+					}
+				}
+				else if (it[cursor] == ')')
+				{
+					cursor++;
+					PropertyVariableTermAtom a;
+					a.variable = StringUtilities::StripWhitespace(it.substr(nameStart, nameEnd - nameStart));
+					a.constant = String();
+					term.push_back(a);
+					any_var = true;
+				}
+				else
+				{
+					// parse error
+				}
+
+				prev = cursor;
+			}
+			else
+			{
+				++cursor;
+			}
+		}
+
+		// add leftover characters
+		if (prev < len)
+		{
+			PropertyVariableTermAtom a;
+			a.variable = String();
+			a.constant = it.substr(prev);
+			term.push_back(a);
+		}
+
+		// add space between values
+		PropertyVariableTermAtom a;
+		a.variable = String();
+		a.constant = ' ';
+		term.push_back(a);
+	}
+
+	// remove space behind last value
+	if (!term.empty())
+	{
+		term.pop_back();
+	}
+
+	return any_var;
 }
 
 } // namespace Rml
