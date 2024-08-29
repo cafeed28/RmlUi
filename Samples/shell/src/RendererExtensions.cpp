@@ -84,6 +84,23 @@ RendererExtensions::Image RendererExtensions::CaptureScreen()
 		Rml::Log::Message(Rml::Log::LT_ERROR, "Could not capture screenshot, got GL error: 0x%x", err);
 	}
 
+	// Vertically flip image
+	Rml::byte* data = image.data.get();
+
+	const int stride = image.width * image.num_components;
+	Rml::byte* tmp = new Rml::byte[stride];
+
+	for (int y = 0; y < image.height / 2; y++)
+	{
+		const int flipped_y = image.height - y - 1;
+
+		memcpy(tmp, &data[y * image.width * image.num_components], stride);
+		memcpy(&data[y * image.width * image.num_components], &data[flipped_y * image.width * image.num_components], stride);
+		memcpy(&data[flipped_y * image.width * image.num_components], tmp, stride);
+	}
+
+	delete[] tmp;
+
 	if (!result)
 		return Image();
 

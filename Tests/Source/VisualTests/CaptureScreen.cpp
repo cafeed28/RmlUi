@@ -53,7 +53,7 @@ bool CaptureScreenshot(const Rml::String& filename, int clip_width)
 	if (clip_width == 0)
 		clip_width = image_orig.width;
 
-	// Create a new image flipped vertically, and clipped to the given clip width.
+	// Create a new image clipped to the given clip width.
 	Image image;
 	image.width = clip_width;
 	image.height = image_orig.height;
@@ -63,10 +63,8 @@ bool CaptureScreenshot(const Rml::String& filename, int clip_width)
 	const int c = image.num_components;
 	for (int y = 0; y < image.height; y++)
 	{
-		const int flipped_y = image_orig.height - y - 1;
-
 		const int yb = y * image.width * c;
-		const int yb_orig = flipped_y * image_orig.width * c;
+		const int yb_orig = y * image_orig.width * c;
 		const int wb = image.width * c;
 
 		for (int xb = 0; xb < wb; xb++)
@@ -136,7 +134,6 @@ ComparisonResult CompareScreenToPreviousCapture(Rml::RenderInterface* render_int
 	// So we have both images now, compare them! Also create a diff image.
 	// In case they are not the same size, we require that the reference image size is smaller or equal to the screen
 	// in both dimensions, and we compare them at the top-left corner.
-	// Note that the loaded image is flipped vertically compared to the OpenGL capture!
 
 	if (screen.width < (int)w_ref || screen.height < (int)h_ref)
 	{
@@ -151,10 +148,9 @@ ComparisonResult CompareScreenToPreviousCapture(Rml::RenderInterface* render_int
 	size_t max_pixel_diff = 0;
 	for (int y = 0; y < (int)h_ref; y++)
 	{
-		const int y_flipped_screen = screen.height - y - 1;
 		for (int x = 0; x < (int)w_ref; x++)
 		{
-			const int i0_screen = (y_flipped_screen * screen.width + x) * 3;
+			const int i0_screen = (y * screen.width + x) * 3;
 			const int i0_ref = (y * w_ref + x) * 4;
 			const int i0_diff = (y * diff.width + x) * 4;
 
