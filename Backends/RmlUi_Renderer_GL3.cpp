@@ -2025,6 +2025,45 @@ Rml::CompiledFilterHandle RenderInterface_GL3::SaveLayerAsMaskImage()
 	return reinterpret_cast<Rml::CompiledFilterHandle>(new CompiledFilter(std::move(filter)));
 }
 
+Rml::Image RenderInterface_GL3::CaptureScreen()
+{
+	int viewport[4] = {}; // x, y, width, height
+	glGetIntegerv(GL_VIEWPORT, viewport);
+
+	Rml::Image image;
+	image.num_components = 3;
+	image.width = viewport[2];
+	image.height = viewport[3];
+
+	if (image.width < 1 || image.height < 1)
+		return {};
+
+	const int byte_size = image.width * image.height * image.num_components;
+	image.data = Rml::UniquePtr<Rml::byte[]>(new Rml::byte[byte_size]);
+
+	glReadPixels(0, 0, image.width, image.height, GL_RGB, GL_UNSIGNED_BYTE, image.data.get());
+
+	GLenum err;
+	while ((err = glGetError()) != GL_NO_ERROR)
+	{
+		Rml::Log::Message(Rml::Log::LT_ERROR, "Could not capture screenshot, got GL error: 0x%x", err);
+		return {};
+	}
+
+	// Vertically flip image
+	const int stride = image.width * image.num_components;
+
+	for (int y = 0; y < image.height / 2; y++)
+	{
+		std::swap_ranges(image.data.get() + stride * y,        //
+			image.data.get() + stride * (y + 1),               //
+			image.data.get() + stride * (image.height - y - 1) //
+		);
+	}
+
+	return image;
+}
+
 void RenderInterface_GL3::UseProgram(ProgramId program_id)
 {
 	RMLUI_ASSERT(program_data);

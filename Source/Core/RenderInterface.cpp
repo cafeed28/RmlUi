@@ -67,6 +67,11 @@ TextureHandle RenderInterface::SaveLayerAsTexture()
 	return TextureHandle{};
 }
 
+Image RenderInterface::CaptureScreen()
+{
+	return Image{};
+}
+
 CompiledFilterHandle RenderInterface::SaveLayerAsMaskImage()
 {
 	return CompiledFilterHandle{};

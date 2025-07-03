@@ -11,6 +11,18 @@ target_sources(rmlui_backend_common_headers INTERFACE
 	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_Backend.h"
 )
 
+add_library(rmlui_backend_Win32_D3D11 INTERFACE)
+target_sources(rmlui_backend_Win32_D3D11 INTERFACE
+	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_Platform_Win32.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_Renderer_D3D11.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_Renderer_D3D11_Pipeline.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_Backend_Win32_D3D11.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_Platform_Win32.h"
+	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_Renderer_D3D11.h"
+	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_D3D11/ShadersCompiled.h"
+)
+target_link_libraries(rmlui_backend_Win32_D3D11 INTERFACE rmlui_backend_common_headers dxgi dxguid d3d11)
+
 add_library(rmlui_backend_Win32_GL2 INTERFACE)
 target_sources(rmlui_backend_Win32_GL2 INTERFACE
 	"${CMAKE_CURRENT_LIST_DIR}/RmlUi_Platform_Win32.cpp"

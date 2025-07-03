@@ -1,0 +1,6 @@
+Diagnostics:
+  UnusedIncludes: None
+  MissingIncludes: None
+  Suppress: pragma-pack
+CompileFlags:
+  Add: -ferror-limit=0

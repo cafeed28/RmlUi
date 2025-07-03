@@ -26,22 +26,19 @@
  *
  */
 
-#ifndef RMLUI_SHELL_RENDEREREXTENSIONS_H
-#define RMLUI_SHELL_RENDEREREXTENSIONS_H
+#ifndef RMLUI_CORE_IMAGE_H
+#define RMLUI_CORE_IMAGE_H
 
-#include <RmlUi/Core/Types.h>
+#include "Types.h"
 
-namespace RendererExtensions {
+namespace Rml {
 
-// Extensions used by the test suite
-struct Image {
+struct RMLUICORE_API Image {
 	int width = 0;
 	int height = 0;
 	int num_components = 0;
 	Rml::UniquePtr<Rml::byte[]> data;
 };
-Image CaptureScreen();
 
-} // namespace RendererExtensions
-
+} // namespace Rml
 #endif

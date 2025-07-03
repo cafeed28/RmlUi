@@ -4,12 +4,10 @@
 
 add_library(rmlui_shell STATIC
 	src/PlatformExtensions.cpp
-	src/RendererExtensions.cpp
 	src/Shell.cpp
 	src/ShellFileInterface.cpp
 
 	include/PlatformExtensions.h
-	include/RendererExtensions.h
 	include/Shell.h
 	include/ShellFileInterface.h
 )

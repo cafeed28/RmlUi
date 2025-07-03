@@ -30,6 +30,7 @@
 #define RMLUI_CORE_RENDERINTERFACE_H
 
 #include "Header.h"
+#include "Image.h"
 #include "Traits.h"
 #include "Types.h"
 #include "Vertex.h"
@@ -145,6 +146,10 @@ public:
 	/// Called by RmlUi when it wants to store the current layer as a mask image, to be applied later as a filter.
 	/// @return An application-specified handle to a new filter representing the stored mask image.
 	virtual CompiledFilterHandle SaveLayerAsMaskImage();
+
+	/// Called by RmlUi when it wants to store the current ???? as a image to be saved to a file.
+	/// @return
+	virtual Image CaptureScreen();
 
 	/// Called by RmlUi when it wants to compile a new filter.
 	/// @param[in] name The name of the filter.

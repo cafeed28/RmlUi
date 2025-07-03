@@ -87,6 +87,8 @@ public:
 
 	Rml::CompiledFilterHandle SaveLayerAsMaskImage() override;
 
+	Rml::Image CaptureScreen() override;
+
 	Rml::CompiledFilterHandle CompileFilter(const Rml::String& name, const Rml::Dictionary& parameters) override;
 	void ReleaseFilter(Rml::CompiledFilterHandle filter) override;
 
