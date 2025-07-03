@@ -490,8 +490,7 @@ private: // Layers
 	*/
 	class RenderLayerStack {
 	public:
-		RenderLayerStack(int width, int height, ComPtr<ID3D11Device> device/* , ComPtr<ID3D11Texture2D> depth_stencil,
-			ComPtr<ID3D11DepthStencilView> depth_stencil_view */);
+		RenderLayerStack(int width, int height, ComPtr<ID3D11Device> device);
 
 		// Push a new layer. All references to previously retrieved layers are invalidated.
 		Rml::LayerHandle PushLayer();
@@ -499,14 +498,14 @@ private: // Layers
 		// Pop the top layer. All references to previously retrieved layers are invalidated.
 		void PopLayer();
 
-		const DepthStencilTexture& GetLayer(Rml::LayerHandle layer) const;
-		const DepthStencilTexture& GetTopLayer() const;
+		const Texture& GetLayer(Rml::LayerHandle layer) const;
+		const Texture& GetTopLayer() const;
 		Rml::LayerHandle GetTopLayerHandle() const;
 
-		const Texture& GetPostprocessPrimary() { return fb_postprocess.at(0); }
-		const Texture& GetPostprocessSecondary() { return fb_postprocess.at(1); }
-		const Texture& GetPostprocessTertiary() { return fb_postprocess.at(2); }
-		const Texture& GetBlendMask() { return fb_postprocess.at(3); }
+		const DepthStencilTexture& GetPostprocessPrimary() { return fb_postprocess.at(0); }
+		const DepthStencilTexture& GetPostprocessSecondary() { return fb_postprocess.at(1); }
+		const DepthStencilTexture& GetPostprocessTertiary() { return fb_postprocess.at(2); }
+		const DepthStencilTexture& GetBlendMask() { return fb_postprocess.at(3); }
 
 		void SwapPostprocessPrimarySecondary();
 
@@ -517,12 +516,12 @@ private: // Layers
 		int m_width = 0;
 		int m_height = 0;
 
-		Rml::Vector<DepthStencilTexture> fb_layers;
-		Rml::Array<Texture, 4> fb_postprocess;
+		Rml::Vector<Texture> fb_layers;
+		Rml::Array<DepthStencilTexture, 4> fb_postprocess;
 
 		ComPtr<ID3D11Device> m_device = {};
-		ComPtr<ID3D11Texture2D> m_postprocess_depth_stencil = {};
-		ComPtr<ID3D11DepthStencilView> m_postprocess_dsv = {};
+		ComPtr<ID3D11Texture2D> m_layers_depth_stencil = {};
+		ComPtr<ID3D11DepthStencilView> m_layers_dsv = {};
 	};
 
 private:

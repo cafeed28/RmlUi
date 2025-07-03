@@ -47,23 +47,38 @@ static const DXGI_SAMPLE_DESC msaa_sample_desc{NUM_MSAA_SAMPLES, 0};
 
 static const float clear_color[4] = {0.f, 0.f, 0.f, 0.f};
 
-RenderInterface_D3D11::RenderLayerStack::RenderLayerStack(int width, int height, ComPtr<ID3D11Device> device/* , ComPtr<ID3D11Texture2D> depth_stencil,
-	ComPtr<ID3D11DepthStencilView> depth_stencil_view */)
+RenderInterface_D3D11::RenderLayerStack::RenderLayerStack(int width, int height, ComPtr<ID3D11Device> device)
 {
 	m_width = width;
 	m_height = height;
 
 	m_device = device;
-	// m_depth_stencil = depth_stencil;
-	// m_depth_stencil_view = depth_stencil_view;
+
+	HRESULT hr;
+	{
+		CD3D11_TEXTURE2D_DESC desc(DXGI_FORMAT_D24_UNORM_S8_UINT, m_width, m_height, 1, 1, D3D11_BIND_DEPTH_STENCIL);
+		desc.SampleDesc = msaa_sample_desc;
+
+		hr = m_device->CreateTexture2D(&desc, nullptr, m_layers_depth_stencil.GetAddressOf());
+		CHECK_HRESULT_VOID(hr, "Failed to create depth stencil");
+	}
+
+	{
+		hr = m_device->CreateDepthStencilView(m_layers_depth_stencil.Get(), nullptr, m_layers_dsv.GetAddressOf());
+		CHECK_HRESULT_VOID(hr, "Failed to create depth stencil view");
+	}
 
 	for (int i = 0; i < 4; i++)
 	{
-		fb_postprocess.at(i) = Texture{m_device.Get(), {m_width, m_height}, back_buffer_format, 1};
+		// fb_postprocess.at(i) = Texture{m_device.Get(), {m_width, m_height}, back_buffer_format, 1};
+		fb_postprocess.at(i) = DepthStencilTexture{m_device.Get(), {m_width, m_height}, back_buffer_format, 1};
 
 		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).texture.Get(), "PostProcess #%d (texture)", i);
 		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).srv.Get(), "PostProcess #%d (srv)", i);
 		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).rtv.Get(), "PostProcess #%d (rtv)", i);
+
+		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).texture_depth_stencil.Get(), "PostProcess #%d (depthstencil)", layers_size);
+		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).dsv.Get(), "PostProcess #%d (dsv)", layers_size);
 	}
 }
 
@@ -73,7 +88,8 @@ Rml::LayerHandle RenderInterface_D3D11::RenderLayerStack::PushLayer()
 
 	if (layers_size == static_cast<int>(fb_layers.size()))
 	{
-		fb_layers.push_back(DepthStencilTexture{m_device.Get(), {m_width, m_height}, back_buffer_format, NUM_MSAA_SAMPLES});
+		// fb_layers.push_back(DepthStencilTexture{m_device.Get(), {m_width, m_height}, back_buffer_format, NUM_MSAA_SAMPLES});
+		fb_layers.push_back(Texture{m_device.Get(), {m_width, m_height}, back_buffer_format, NUM_MSAA_SAMPLES});
 
 		D3D_SET_OBJECT_NAME(fb_layers.back().texture.Get(), "Layer #%d (texture)", layers_size);
 		D3D_SET_OBJECT_NAME(fb_layers.back().srv.Get(), "Layer #%d (srv)", layers_size);
@@ -91,13 +107,13 @@ void RenderInterface_D3D11::RenderLayerStack::PopLayer()
 	layers_size -= 1;
 }
 
-const RenderInterface_D3D11::DepthStencilTexture& RenderInterface_D3D11::RenderLayerStack::GetLayer(Rml::LayerHandle layer) const
+const RenderInterface_D3D11::Texture& RenderInterface_D3D11::RenderLayerStack::GetLayer(Rml::LayerHandle layer) const
 {
 	RMLUI_ASSERT(static_cast<size_t>(layer) < static_cast<size_t>(layers_size));
 	return fb_layers.at(layer);
 }
 
-const RenderInterface_D3D11::DepthStencilTexture& RenderInterface_D3D11::RenderLayerStack::GetTopLayer() const
+const RenderInterface_D3D11::Texture& RenderInterface_D3D11::RenderLayerStack::GetTopLayer() const
 {
 	return GetLayer(GetTopLayerHandle());
 }
@@ -161,9 +177,10 @@ void RenderInterface_D3D11::BeginFrame()
 	SetTransform(nullptr);
 
 	m_render_layers->PushLayer();
+	BEGIN_EVENT("Layer #%d", 0); // TODO move to RenderLayerStack
 
 	auto& layer = m_render_layers->GetTopLayer();
-	m_device_context->OMSetRenderTargets(1, layer.rtv.GetAddressOf(), layer.dsv.Get());
+	m_device_context->OMSetRenderTargets(1, layer.rtv.GetAddressOf(), m_render_layers->m_layers_dsv.Get());
 	// m_device_context->ClearDepthStencilView(m_depth_stencil_view.Get(), D3D11_CLEAR_STENCIL, 1.0, 0);
 	m_device_context->ClearRenderTargetView(layer.rtv.Get(), clear_color);
 }
@@ -195,8 +212,6 @@ void RenderInterface_D3D11::SetViewport(int width, int height)
 	delete m_render_layers;
 
 	m_back_buffer.Reset();
-	// m_depth_stencil.Reset();
-	// m_depth_stencil_view.Reset();
 
 	hr = m_swap_chain->ResizeBuffers(0, m_viewport.x, m_viewport.y, back_buffer_format, 0);
 	CHECK_HRESULT_VOID(hr, "Failed to resize buffers");
@@ -206,19 +221,6 @@ void RenderInterface_D3D11::SetViewport(int width, int height)
 
 	CD3D11_TEXTURE2D_DESC texture_desc(DXGI_FORMAT_UNKNOWN, m_viewport.x, m_viewport.y, 1, 1);
 	texture_desc.BindFlags = D3D11_BIND_RENDER_TARGET;
-
-	// Create depth-stencil and view
-	/* {
-	    texture_desc.Format = depth_stencil_buffer_format;
-	    texture_desc.SampleDesc = msaa_sample_desc;
-	    texture_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-
-	    hr = m_device->CreateTexture2D(&texture_desc, nullptr, m_depth_stencil.GetAddressOf());
-	    CHECK_HRESULT_VOID(hr, "Failed to create depth-stencil");
-
-	    hr = m_device->CreateDepthStencilView(m_depth_stencil.Get(), nullptr, m_depth_stencil_view.GetAddressOf());
-	    CHECK_HRESULT_VOID(hr, "Failed to create depth-stencil view");
-	} */
 
 	m_render_layers = new RenderLayerStack(m_viewport.x, m_viewport.y, m_device);
 	m_pipeline = new D3D11Pipeline(m_device, m_device_context);
@@ -589,10 +591,10 @@ void RenderInterface_D3D11::RenderToClipMask(Rml::ClipMaskOperation operation, R
 
 	if (clear_stencil)
 	{
-		m_device_context->ClearDepthStencilView(m_render_layers->GetTopLayer().dsv.Get(), D3D11_CLEAR_STENCIL, 1.0, 0);
+		m_device_context->ClearDepthStencilView(m_render_layers->m_layers_dsv.Get(), D3D11_CLEAR_STENCIL, 1.0, 0);
 	}
 
-	m_device_context->OMSetRenderTargets(0, nullptr, m_render_layers->GetTopLayer().dsv.Get());
+	m_device_context->OMSetRenderTargets(0, nullptr, m_render_layers->m_layers_dsv.Get());
 
 	m_pipeline->UseDepthStencilState(depth_stencil_state_id, 1);
 
@@ -614,7 +616,7 @@ Rml::LayerHandle RenderInterface_D3D11::PushLayer()
 
 	const auto& render_target = m_render_layers->GetLayer(layer_handle);
 
-	m_device_context->OMSetRenderTargets(1, render_target.rtv.GetAddressOf(), render_target.dsv.Get());
+	m_device_context->OMSetRenderTargets(1, render_target.rtv.GetAddressOf(), m_render_layers->m_layers_dsv.Get());
 	m_device_context->ClearRenderTargetView(render_target.rtv.Get(), clear_color);
 
 	return layer_handle;
@@ -650,6 +652,8 @@ void RenderInterface_D3D11::CompositeLayers(Rml::LayerHandle source_handle, Rml:
 		auto& layer_pp = m_render_layers->GetPostprocessPrimary();
 		auto& layer_top = m_render_layers->GetLayer(source_handle);
 
+		// TODO restrict to scissor rect
+		// see RenderInterface_GL3::BlitLayerToPostprocessPrimary
 		m_device_context->ResolveSubresource(layer_pp.texture.Get(), 0, layer_top.texture.Get(), 0, back_buffer_format);
 	}
 
@@ -670,7 +674,7 @@ void RenderInterface_D3D11::CompositeLayers(Rml::LayerHandle source_handle, Rml:
 
 			ID3D11ShaderResourceView* textures[] = {source.srv.Get(), blend_mask.srv.Get()};
 			m_device_context->PSSetShaderResources(0, 2, textures);
-			m_device_context->OMSetRenderTargets(1, destination.rtv.GetAddressOf(), m_render_layers->m_postprocess_dsv.Get());
+			m_device_context->OMSetRenderTargets(1, destination.rtv.GetAddressOf(), destination.dsv.Get());
 
 			DrawFullscreenQuad();
 			m_render_layers->SwapPostprocessPrimarySecondary();
@@ -695,7 +699,7 @@ void RenderInterface_D3D11::CompositeLayers(Rml::LayerHandle source_handle, Rml:
 			auto& source = m_render_layers->GetPostprocessPrimary();
 			auto& destination = m_render_layers->GetPostprocessSecondary();
 			m_device_context->PSSetShaderResources(0, 1, source.srv.GetAddressOf());
-			m_device_context->OMSetRenderTargets(1, destination.rtv.GetAddressOf(), m_render_layers->m_postprocess_dsv.Get());
+			m_device_context->OMSetRenderTargets(1, destination.rtv.GetAddressOf(), destination.dsv.Get());
 
 			DrawFullscreenQuad();
 			m_render_layers->SwapPostprocessPrimarySecondary();
@@ -715,7 +719,7 @@ void RenderInterface_D3D11::CompositeLayers(Rml::LayerHandle source_handle, Rml:
 			auto& primary = m_render_layers->GetPostprocessPrimary();
 			auto& secondary = m_render_layers->GetPostprocessSecondary();
 			m_device_context->PSSetShaderResources(0, 1, primary.srv.GetAddressOf());
-			m_device_context->OMSetRenderTargets(1, secondary.rtv.GetAddressOf(), m_render_layers->m_postprocess_dsv.Get());
+			m_device_context->OMSetRenderTargets(1, secondary.rtv.GetAddressOf(), secondary.dsv.Get());
 
 			const auto tex_coord_limits = CalcTexCoordLimits(m_scissor, m_viewport);
 
@@ -777,7 +781,7 @@ void RenderInterface_D3D11::CompositeLayers(Rml::LayerHandle source_handle, Rml:
 			auto& destination = m_render_layers->GetPostprocessSecondary();
 
 			m_device_context->PSSetShaderResources(0, 1, source.srv.GetAddressOf());
-			m_device_context->OMSetRenderTargets(1, destination.rtv.GetAddressOf(), m_render_layers->m_postprocess_dsv.Get());
+			m_device_context->OMSetRenderTargets(1, destination.rtv.GetAddressOf(), destination.dsv.Get());
 
 			DrawFullscreenQuad();
 			m_render_layers->SwapPostprocessPrimarySecondary();
@@ -801,13 +805,13 @@ void RenderInterface_D3D11::CompositeLayers(Rml::LayerHandle source_handle, Rml:
 	if (blend_mode == Rml::BlendMode::Replace)
 		m_pipeline->PushBlendState(BlendStateId::None, {});
 
-	m_device_context->OMSetRenderTargets(1, layer_destination.rtv.GetAddressOf(), layer_destination.dsv.Get());
+	m_device_context->OMSetRenderTargets(1, layer_destination.rtv.GetAddressOf(), m_render_layers->m_layers_dsv.Get());
 	m_device_context->PSSetShaderResources(0, 1, m_render_layers->GetPostprocessPrimary().srv.GetAddressOf());
 
 	DrawFullscreenQuad();
 
 	if (destination_handle != m_render_layers->GetTopLayerHandle())
-		m_device_context->OMSetRenderTargets(1, m_render_layers->GetTopLayer().rtv.GetAddressOf(), m_render_layers->GetTopLayer().dsv.Get());
+		m_device_context->OMSetRenderTargets(1, m_render_layers->GetTopLayer().rtv.GetAddressOf(), m_render_layers->m_layers_dsv.Get());
 
 	m_pipeline->PopPixelShader();
 	m_pipeline->PopVertexShader();
@@ -821,7 +825,7 @@ void RenderInterface_D3D11::PopLayer()
 	m_render_layers->PopLayer();
 
 	const auto& layer = m_render_layers->GetTopLayer();
-	m_device_context->OMSetRenderTargets(1, layer.rtv.GetAddressOf(), layer.dsv.Get());
+	m_device_context->OMSetRenderTargets(1, layer.rtv.GetAddressOf(), m_render_layers->m_layers_dsv.Get());
 }
 
 static void SigmaToParameters(const float desired_sigma, int& out_pass_level, float& out_sigma)
