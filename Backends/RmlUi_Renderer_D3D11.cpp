@@ -68,17 +68,19 @@ RenderInterface_D3D11::RenderLayerStack::RenderLayerStack(int width, int height,
 		CHECK_HRESULT_VOID(hr, "Failed to create depth stencil view");
 	}
 
-	for (int i = 0; i < 4; i++)
+	int i = 0;
+	for (auto& fb : fb_postprocess)
 	{
-		// fb_postprocess.at(i) = Texture{m_device.Get(), {m_width, m_height}, back_buffer_format, 1};
-		fb_postprocess.at(i) = DepthStencilTexture{m_device.Get(), {m_width, m_height}, back_buffer_format, 1};
+		fb = DepthStencilTexture{m_device.Get(), {m_width, m_height}, back_buffer_format, 1};
 
-		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).texture.Get(), "PostProcess #%d (texture)", i);
-		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).srv.Get(), "PostProcess #%d (srv)", i);
-		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).rtv.Get(), "PostProcess #%d (rtv)", i);
+		D3D_SET_OBJECT_NAME(fb.texture.Get(), "PostProcess #%d (texture)", i);
+		D3D_SET_OBJECT_NAME(fb.srv.Get(), "PostProcess #%d (srv)", i);
+		D3D_SET_OBJECT_NAME(fb.rtv.Get(), "PostProcess #%d (rtv)", i);
 
-		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).texture_depth_stencil.Get(), "PostProcess #%d (depthstencil)", layers_size);
-		D3D_SET_OBJECT_NAME(fb_postprocess.at(i).dsv.Get(), "PostProcess #%d (dsv)", layers_size);
+		D3D_SET_OBJECT_NAME(fb.texture_depth_stencil.Get(), "PostProcess #%d (depthstencil)", layers_size);
+		D3D_SET_OBJECT_NAME(fb.dsv.Get(), "PostProcess #%d (dsv)", layers_size);
+
+		i++;
 	}
 }
 
@@ -88,7 +90,6 @@ Rml::LayerHandle RenderInterface_D3D11::RenderLayerStack::PushLayer()
 
 	if (layers_size == static_cast<int>(fb_layers.size()))
 	{
-		// fb_layers.push_back(DepthStencilTexture{m_device.Get(), {m_width, m_height}, back_buffer_format, NUM_MSAA_SAMPLES});
 		fb_layers.push_back(Texture{m_device.Get(), {m_width, m_height}, back_buffer_format, NUM_MSAA_SAMPLES});
 
 		D3D_SET_OBJECT_NAME(fb_layers.back().texture.Get(), "Layer #%d (texture)", layers_size);
@@ -340,17 +341,8 @@ void RenderInterface_D3D11::RenderGeometry(Rml::CompiledGeometryHandle geometry,
 		shader_id = PixelShaderId::Color;
 	}
 
-	if (shader_id != PixelShaderId::None)
-		m_pipeline->PushPixelShader(texture ? PixelShaderId::Texture : PixelShaderId::Color);
-
-	RenderGeometry(compiled_geometry, translation);
-
-	if (shader_id != PixelShaderId::None)
-		m_pipeline->PopPixelShader();
-}
-
-void RenderInterface_D3D11::RenderGeometry(CompiledGeometry* geometry, Rml::Vector2f translation)
-{
+	// TODO probably do smth like m_pipeline->CurrentVertexShader
+	if (shader_id == PixelShaderId::Texture || shader_id == PixelShaderId::Color)
 	{
 		auto map = m_pipeline->Map(BufferId::VertexConstant);
 
@@ -359,13 +351,40 @@ void RenderInterface_D3D11::RenderGeometry(CompiledGeometry* geometry, Rml::Vect
 		buffer->translate = translation;
 	}
 
-	unsigned int stride = sizeof(Rml::Vertex);
-	unsigned int offset = 0;
-	m_device_context->IASetVertexBuffers(0, 1, geometry->vertex_buffer.GetAddressOf(), &stride, &offset);
-	m_device_context->IASetIndexBuffer(geometry->index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	if (shader_id != PixelShaderId::None)
+		m_pipeline->PushPixelShader(texture ? PixelShaderId::Texture : PixelShaderId::Color);
 
-	m_device_context->DrawIndexed(geometry->index_count, 0, 0);
+	// RenderGeometry(compiled_geometry, translation);
+	{
+		unsigned int stride = sizeof(Rml::Vertex);
+		unsigned int offset = 0;
+		m_device_context->IASetVertexBuffers(0, 1, compiled_geometry->vertex_buffer.GetAddressOf(), &stride, &offset);
+		m_device_context->IASetIndexBuffer(compiled_geometry->index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+
+		m_device_context->DrawIndexed(compiled_geometry->index_count, 0, 0);
+	}
+
+	if (shader_id != PixelShaderId::None)
+		m_pipeline->PopPixelShader();
 }
+
+// void RenderInterface_D3D11::RenderGeometry(CompiledGeometry* geometry, Rml::Vector2f translation)
+// {
+// 	{
+// 		auto map = m_pipeline->Map(BufferId::VertexConstant);
+
+// 		auto buffer = map->Get<CBuffer_Vertex_Main>();
+// 		buffer->transform = m_transform;
+// 		buffer->translate = translation;
+// 	}
+
+// 	unsigned int stride = sizeof(Rml::Vertex);
+// 	unsigned int offset = 0;
+// 	m_device_context->IASetVertexBuffers(0, 1, geometry->vertex_buffer.GetAddressOf(), &stride, &offset);
+// 	m_device_context->IASetIndexBuffer(geometry->index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+
+// 	m_device_context->DrawIndexed(geometry->index_count, 0, 0);
+// }
 
 void RenderInterface_D3D11::DrawFullscreenQuad()
 {
@@ -837,10 +856,79 @@ static void SigmaToParameters(const float desired_sigma, int& out_pass_level, fl
 	out_sigma = Rml::Math::Clamp(desired_sigma / float(1 << out_pass_level), 0.0f, max_single_pass_sigma);
 }
 
+void RenderInterface_D3D11::BlitRenderTarget(const Texture& source, const Texture& dest, int srcX0, int srcY0, int srcX1, int srcY1, int dstX0,
+	int dstY0, int dstX1, int dstY1)
+{
+	int src_width = srcX1 - srcX0;
+	int src_height = srcY1 - srcY0;
+	int dest_width = dstX1 - dstX0;
+	int dest_height = dstY1 - dstY0;
+
+	bool is_flipped = src_width < 0 || src_height < 0 || dest_width < 0 || dest_height < 0;
+	bool is_stretched = src_width != dest_width || src_height != dest_height;
+	bool is_full_copy = src_width == dest_width && src_height == dest_height && srcX0 == 0 && srcY0 == 0 && dstX0 == 0 && dstY0 == 0;
+
+	if (is_flipped || is_stretched || !is_full_copy)
+	{
+		// Unbind existing textures to prevent warning spam
+		ID3D11ShaderResourceView* null_shader_resource_views[2] = {nullptr, nullptr};
+		m_device_context->PSSetShaderResources(0, 2, null_shader_resource_views);
+
+		// Disable blending
+		m_pipeline->PushBlendState(BlendStateId::None, {});
+
+		// Resolve from source to the temporary first
+		m_device_context->ResolveSubresource(dest.texture.Get(), 0, source.texture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
+
+		// Bind destination as our final render texture
+		m_device_context->OMSetRenderTargets(1, dest.rtv.GetAddressOf(), nullptr);
+
+		// Bind texture
+		m_device_context->PSSetShaderResources(0, 1, source.srv.GetAddressOf());
+		m_pipeline->PushPixelShader(PixelShaderId::Passthrough);
+		m_pipeline->PushVertexShader(VertexShaderId::Passthrough);
+
+		// Draw a quad into temporary with source bound as the texture, and the UVs lerping to match the new dimensions
+		// We want to map UV   0 -  1 to src min-max
+		// We want to map pos -1 - +1 to dst min max
+
+		float uv_x_min = float(srcX0) / float(m_viewport.x); // Map to 0
+		float uv_y_max = float(srcY0) / float(m_viewport.y); // Map to 0
+		float uv_x_max = float(srcX1) / float(m_viewport.x); // Map to +1
+		float uv_y_min = float(srcY1) / float(m_viewport.y); // Map to +1
+
+		float pos_x_min = (dstX0 / float(m_viewport.x)) * 2.0f - 1.0f;
+		float pos_y_min = ((m_viewport.y - dstY0 - dest_height) / float(m_viewport.y)) * 2.0f - 1.0f;
+		float pos_x_max = ((dstX0 + dest_width) / float(m_viewport.x)) * 2.0f - 1.0f;
+		float pos_y_max = ((m_viewport.y - dstY0) / float(m_viewport.y)) * 2.0f - 1.0f;
+
+		Rml::Mesh mesh;
+		Rml::MeshUtilities::GenerateQuad(mesh,              //
+			{pos_x_min, pos_y_min},                         //
+			{pos_x_max - pos_x_min, pos_y_max - pos_y_min}, //
+			{},                                             //
+			{uv_x_min, uv_y_min},                           //
+			{uv_x_max, uv_y_max}                            //
+		);
+
+		const Rml::CompiledGeometryHandle geometry = CompileGeometry(mesh.vertices, mesh.indices);
+		RenderGeometry(geometry, {}, TexturePostprocess);
+		ReleaseGeometry(geometry);
+
+		m_pipeline->PopBlendState();
+		m_pipeline->PopPixelShader();
+		m_pipeline->PopVertexShader();
+	}
+	else
+	{
+		// Resolve and move on
+		m_device_context->ResolveSubresource(dest.texture.Get(), 0, source.texture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
+	}
+}
+
 void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destination, const Texture& temp)
 {
-	return; // FIXME broken
-	// RMLUI_ASSERT(&source_destination != &temp && m_viewport_width == temp.width && m_viewport_height == temp.height);
+	RMLUI_ASSERT(&source_destination != &temp);
 
 	int pass_level = 0;
 	SigmaToParameters(sigma, pass_level, sigma);
@@ -861,6 +949,13 @@ void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destin
 	const Rml::Vector2f uv_scaling = {(m_viewport.x % 2 == 1) ? (1.f - 1.f / float(m_viewport.x)) : 1.f,
 		(m_viewport.y % 2 == 1) ? (1.f - 1.f / float(m_viewport.y)) : 1.f};
 
+	// TODO m_pipeline->Unbind
+	void* null_view[1] = {nullptr};
+
+	// TODO god we are unbinding way too much i think, optimize this??? (or measure perf impact of those unbinds)
+	m_device_context->PSSetShaderResources(0, 1, reinterpret_cast<ID3D11ShaderResourceView**>(null_view));
+	m_device_context->OMSetRenderTargets(0, reinterpret_cast<ID3D11RenderTargetView**>(null_view), nullptr);
+
 	for (int i = 0; i < pass_level; i++)
 	{
 		scissor.p0 = (scissor.p0 + Rml::Vector2i(1)) / 2;
@@ -871,9 +966,14 @@ void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destin
 		m_device_context->OMSetRenderTargets(1, (from_source ? temp : source_destination).rtv.GetAddressOf(), nullptr);
 
 		SetScissorRegion(scissor);
-
 		DrawFullscreenQuad({}, uv_scaling);
+
+		m_device_context->PSSetShaderResources(0, 1, reinterpret_cast<ID3D11ShaderResourceView**>(null_view));
+		m_device_context->OMSetRenderTargets(0, reinterpret_cast<ID3D11RenderTargetView**>(null_view), nullptr);
 	}
+
+	m_device_context->PSSetShaderResources(0, 1, reinterpret_cast<ID3D11ShaderResourceView**>(null_view));
+	m_device_context->OMSetRenderTargets(0, reinterpret_cast<ID3D11RenderTargetView**>(null_view), nullptr);
 
 	m_pipeline->PopViewport();
 
@@ -884,6 +984,9 @@ void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destin
 		m_device_context->PSSetShaderResources(0, 1, source_destination.srv.GetAddressOf());
 		m_device_context->OMSetRenderTargets(1, temp.rtv.GetAddressOf(), nullptr);
 		DrawFullscreenQuad();
+
+		m_device_context->PSSetShaderResources(0, 1, reinterpret_cast<ID3D11ShaderResourceView**>(null_view));
+		m_device_context->OMSetRenderTargets(0, reinterpret_cast<ID3D11RenderTargetView**>(null_view), nullptr);
 	}
 
 	// Set up uniforms.
@@ -930,6 +1033,9 @@ void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destin
 	SetTexelOffset({0.f, 1.f}, m_viewport.y);
 	DrawFullscreenQuad();
 
+	m_device_context->PSSetShaderResources(0, 1, reinterpret_cast<ID3D11ShaderResourceView**>(null_view));
+	m_device_context->OMSetRenderTargets(0, reinterpret_cast<ID3D11RenderTargetView**>(null_view), nullptr);
+
 	// Blur render pass - horizontal.
 	m_device_context->PSSetShaderResources(0, 1, source_destination.srv.GetAddressOf());
 	m_device_context->OMSetRenderTargets(1, temp.rtv.GetAddressOf(), nullptr);
@@ -940,7 +1046,6 @@ void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destin
 	// hand, it looks like Nvidia clamps the pixels to the source edge, which is what we really want. Regardless, we
 	// work around the issue with this extra step.
 	SetScissorRegion(scissor.Extend(1));
-
 	m_device_context->ClearRenderTargetView(temp.rtv.Get(), clear_color);
 	SetScissorRegion(scissor);
 
@@ -949,14 +1054,12 @@ void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destin
 
 	// Blit the blurred image to the scissor region with upscaling.
 	SetScissorRegion(original_scissor);
-	// glBindFramebuffer(GL_READ_FRAMEBUFFER, temp.framebuffer);
-	// glBindFramebuffer(GL_DRAW_FRAMEBUFFER, source_destination.framebuffer);
 
 	const Rml::Vector2i src_min = scissor.p0;
 	const Rml::Vector2i src_max = scissor.p1;
 	const Rml::Vector2i dst_min = original_scissor.p0;
 	const Rml::Vector2i dst_max = original_scissor.p1;
-	// glBlitFramebuffer(src_min.x, src_min.y, src_max.x, src_max.y, dst_min.x, dst_min.y, dst_max.x, dst_max.y, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+	BlitRenderTarget(temp, source_destination, src_min.x, src_min.y, src_max.x, src_max.y, dst_min.x, dst_min.y, dst_max.x, dst_max.y);
 
 	// The above upscale blit might be jittery at low resolutions (large pass levels). This is especially noticeable when moving an element with
 	// backdrop blur around or when trying to click/hover an element within a blurred region since it may be rendered at an offset. For more stable
@@ -967,8 +1070,8 @@ void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destin
 	const Rml::Vector2i target_max = src_max * (1 << pass_level);
 	if (target_min != dst_min || target_max != dst_max)
 	{
-		// glBlitFramebuffer(src_min.x, src_min.y, src_max.x, src_max.y, target_min.x, target_min.y, target_max.x, target_max.y, GL_COLOR_BUFFER_BIT,
-		// 	GL_LINEAR);
+		BlitRenderTarget(temp, source_destination, src_min.x, src_min.y, src_max.x, src_max.y, target_min.x, target_min.y, target_max.x,
+			target_max.y);
 	}
 
 	// Restore render state.
@@ -1270,7 +1373,24 @@ void RenderInterface_D3D11::RenderShader(Rml::CompiledShaderHandle shader, Rml::
 	if (shader_id != PixelShaderId::None)
 	{
 		m_pipeline->PushPixelShader(shader_id);
-		RenderGeometry(compiled_geometry, translation);
+		// RenderGeometry(compiled_geometry, translation);
+		// TODO ts so ass :sob::pray:
+		{
+			{
+				auto map = m_pipeline->Map(BufferId::VertexConstant);
+
+				auto buffer = map->Get<CBuffer_Vertex_Main>();
+				buffer->transform = m_transform;
+				buffer->translate = translation;
+			}
+
+			unsigned int stride = sizeof(Rml::Vertex);
+			unsigned int offset = 0;
+			m_device_context->IASetVertexBuffers(0, 1, compiled_geometry->vertex_buffer.GetAddressOf(), &stride, &offset);
+			m_device_context->IASetIndexBuffer(compiled_geometry->index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+
+			m_device_context->DrawIndexed(compiled_geometry->index_count, 0, 0);
+		}
 		m_pipeline->PopPixelShader();
 	}
 }

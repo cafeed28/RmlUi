@@ -506,6 +506,7 @@ private: // Layers
 		const DepthStencilTexture& GetPostprocessSecondary() { return fb_postprocess.at(1); }
 		const DepthStencilTexture& GetPostprocessTertiary() { return fb_postprocess.at(2); }
 		const DepthStencilTexture& GetBlendMask() { return fb_postprocess.at(3); }
+		const DepthStencilTexture& GetTemporary() { return fb_postprocess.at(4); }
 
 		void SwapPostprocessPrimarySecondary();
 
@@ -517,7 +518,7 @@ private: // Layers
 		int m_height = 0;
 
 		Rml::Vector<Texture> fb_layers;
-		Rml::Array<DepthStencilTexture, 4> fb_postprocess;
+		Rml::Array<DepthStencilTexture, 5> fb_postprocess;
 
 		ComPtr<ID3D11Device> m_device = {};
 		ComPtr<ID3D11Texture2D> m_layers_depth_stencil = {};
@@ -528,7 +529,10 @@ private:
 	void DrawFullscreenQuad();
 	void DrawFullscreenQuad(Rml::Vector2f uv_offset, Rml::Vector2f uv_scaling = Rml::Vector2f(1.f));
 
-	void RenderGeometry(CompiledGeometry* geometry, Rml::Vector2f translation);
+	void BlitRenderTarget(const Texture& source, const Texture& dest, int srcX0, int srcY0, int srcX1, int srcY1, int dstX0, int dstY0, int dstX1,
+		int dstY1);
+
+	// void RenderGeometry(CompiledGeometry* geometry, Rml::Vector2f translation);
 	void RenderBlur(float sigma, const Texture& source_destination, const Texture& temp);
 
 private:
