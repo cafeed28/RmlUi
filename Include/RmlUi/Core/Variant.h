@@ -74,6 +74,7 @@ public:
 		FONTEFFECTSPTR = 'E',
 		COLORSTOPLIST = 'C',
 		BOXSHADOWLIST = 'S',
+		PROPERTYVARIABLETERM = 'V',
 		VOIDPTR = '*',
 	};
 
@@ -164,6 +165,8 @@ private:
 	void Set(ColorStopList&& value);
 	void Set(const BoxShadowList& value);
 	void Set(BoxShadowList&& value);
+	void Set(const PropertyVariableTerm& value);
+	void Set(PropertyVariableTerm&& value);
 
 	template <typename T, typename = std::enable_if_t<std::is_enum<T>::value>>
 	void Set(const T value);

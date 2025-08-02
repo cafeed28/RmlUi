@@ -210,6 +210,11 @@ public:
 	/// @param[in] id The id of the new property.
 	/// @param[in] property The parsed property to set.
 	/// @return True if the property was set successfully, false otherwise.
+	bool SetProperty(const String& name, const Property& property);
+	/// Sets a local property override on the element to a pre-parsed value.
+	/// @param[in] name The name of the new property.
+	/// @param[in] property The parsed property to set.
+	/// @return True if the property was set successfully, false otherwise.
 	bool SetProperty(PropertyId id, const Property& property);
 	/// Removes a local property override on the element; its value will revert to that defined in the style sheet.
 	/// @param[in] name The name of the local property definition to remove.
@@ -217,17 +222,20 @@ public:
 	void RemoveProperty(PropertyId id);
 	/// Returns one of this element's properties. If the property is not defined for this element and not inherited
 	/// from an ancestor, the default value will be returned.
+	/// If the property depends on RCSS property variables, this will return the resolved literal value.
 	/// @param[in] name The name of the property to fetch the value for.
 	/// @return The value of this property for this element, or nullptr if no property exists with the given name.
 	const Property* GetProperty(const String& name);
 	const Property* GetProperty(PropertyId id);
 	/// Returns the values of one of this element's properties.
+	/// If the property depends on RCSS property variables, this will return the resolved literal value.
 	/// @param[in] name The name of the property to get.
 	/// @return The value of this property.
 	template <typename T>
 	T GetProperty(const String& name);
 	/// Returns one of this element's properties. If this element is not defined this property, nullptr will be
 	/// returned.
+	/// If the property depends on RCSS property variables, this will return the resolved literal value.
 	/// @param[in] name The name of the property to fetch the value for.
 	/// @return The value of this property for this element, or nullptr if this property has not been explicitly defined for this element.
 	const Property* GetLocalProperty(const String& name);
@@ -280,6 +288,14 @@ public:
 	/// @warning Modifying the element's properties or classes invalidates the iterator.
 	/// @return Iterator to the first property defined on this element.
 	PropertiesIteratorView IterateLocalProperties() const;
+	///@}
+
+	/** @name Property Variables
+	 */
+	//@{
+	/// Returns the local style property variables, excluding any property variables from local class.
+	/// @return The local property variables for this element, or nullptr if no property variables defined
+	const PropertyVariableMap& GetLocalStylePropertyVariables();
 	///@}
 
 	/** @name Pseudo-classes

@@ -284,7 +284,7 @@ bool StyleSheetParser::ParseKeyframeBlock(KeyframesMap& keyframes_map, const Str
 		Log::Message(Log::LT_WARNING, "Invalid keyframes identifier '%s' at %s:%d", identifier.c_str(), stream_file_name.c_str(), line_number);
 		return false;
 	}
-	if (properties.GetNumProperties() == 0)
+	if (properties.Empty())
 		return true;
 
 	StringList rule_list;
@@ -510,8 +510,8 @@ bool StyleSheetParser::ParseMediaFeatureMap(const String& rules, PropertyDiction
 		default: current_string += character;
 		}
 	}
-
-	if (properties.GetNumProperties() == 0)
+	
+	if (properties.Empty())
 	{
 		Log::Message(Log::LT_WARNING, "Media query list parsing yielded no properties at %s:%d.", stream_file_name.c_str(), line_number);
 	}

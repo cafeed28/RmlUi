@@ -99,6 +99,7 @@ struct ColorStop;
 struct BoxShadow;
 enum class EventId : uint16_t;
 enum class PropertyId : uint8_t;
+enum class ShorthandId : uint8_t;
 enum class MediaQueryId : uint8_t;
 enum class FamilyId : int;
 
@@ -154,6 +155,19 @@ class DataView;
 using DataViewPtr = UniqueReleaserPtr<DataView>;
 class DataController;
 using DataControllerPtr = UniqueReleaserPtr<DataController>;
+
+struct PropertyVariableTermAtom {
+	String variable;
+	String constant;
+	
+	bool operator==(PropertyVariableTermAtom const& o) const {
+		return variable == o.variable && o.constant == constant;
+	}
+};
+
+using PropertyVariableTerm = Vector<PropertyVariableTermAtom>;
+using PropertyVariableMap = UnorderedMap< String, Property >;
+using DependentShorthandMap = UnorderedMap< ShorthandId, PropertyVariableTerm >;
 
 } // namespace Rml
 

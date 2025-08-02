@@ -266,6 +266,9 @@ ElementPtr Element::Clone() const
 		for (auto& id_property : GetStyle()->GetLocalStyleProperties())
 			clone->SetProperty(id_property.first, id_property.second);
 
+		for (auto& var : GetStyle()->GetLocalStylePropertyVariables())
+			clone->SetProperty(var.first, var.second);
+
 		clone->GetStyle()->SetClassNames(GetStyle()->GetClassNames());
 
 		String inner_rml;
@@ -621,7 +624,26 @@ bool Element::SetProperty(const String& name, const String& value)
 		if (!meta->style.SetProperty(property.first, property.second))
 			return false;
 	}
+	for (auto& variable : properties.GetPropertyVariables())
+	{
+		if (!meta->style.SetPropertyVariable(variable.first, variable.second))
+			return false;
+	}
+	for (auto& shorthand : properties.GetDependentShorthands())
+	{
+		if (!meta->style.SetDependentShorthand(shorthand.first, shorthand.second))
+			return false;
+	}
 	return true;
+}
+
+bool Element::SetProperty(const String& name, const Property& property)
+{
+	auto id = StyleSheetSpecification::GetPropertyId(name);
+	if (id == PropertyId::Invalid)
+		return meta->style.SetPropertyVariable(name, property);
+	else
+		return meta->style.SetProperty(id, property);
 }
 
 bool Element::SetProperty(PropertyId id, const Property& property)
@@ -642,6 +664,11 @@ void Element::RemoveProperty(const String& name)
 			auto property_id_set = StyleSheetSpecification::GetShorthandUnderlyingProperties(shorthand_id);
 			for (auto it = property_id_set.begin(); it != property_id_set.end(); ++it)
 				meta->style.RemoveProperty(*it);
+			auto id = StyleSheetSpecification::GetPropertyId(name);
+			if (id == PropertyId::Invalid)
+				return meta->style.RemovePropertyVariable(name);
+			else
+				return meta->style.RemoveProperty(id);
 		}
 	}
 }
@@ -653,7 +680,11 @@ void Element::RemoveProperty(PropertyId id)
 
 const Property* Element::GetProperty(const String& name)
 {
-	return meta->style.GetProperty(StyleSheetSpecification::GetPropertyId(name));
+	auto id = StyleSheetSpecification::GetPropertyId(name);
+	if (id == PropertyId::Invalid)
+		return meta->style.GetPropertyVariable(name);
+	else
+		return meta->style.GetProperty(id);
 }
 
 const Property* Element::GetProperty(PropertyId id)
@@ -663,7 +694,11 @@ const Property* Element::GetProperty(PropertyId id)
 
 const Property* Element::GetLocalProperty(const String& name)
 {
-	return meta->style.GetLocalProperty(StyleSheetSpecification::GetPropertyId(name));
+	auto id = StyleSheetSpecification::GetPropertyId(name);
+	if (id == PropertyId::Invalid)
+		return meta->style.GetLocalPropertyVariable(name);
+	else
+		return meta->style.GetLocalProperty(id);
 }
 
 const Property* Element::GetLocalProperty(PropertyId id)
@@ -790,6 +825,12 @@ PropertiesIteratorView Element::IterateLocalProperties() const
 	return PropertiesIteratorView(MakeUnique<PropertiesIterator>(meta->style.Iterate()));
 }
 
+const PropertyVariableMap& Element::GetLocalStylePropertyVariables()
+{
+	return meta->style.GetLocalStylePropertyVariables();
+}
+
+// Sets or removes a pseudo-class on the element.
 void Element::SetPseudoClass(const String& pseudo_class, bool activate)
 {
 	if (meta->style.SetPseudoClass(pseudo_class, activate, false))

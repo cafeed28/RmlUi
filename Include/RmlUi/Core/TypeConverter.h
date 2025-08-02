@@ -178,6 +178,17 @@ public:
 	RMLUICORE_API static bool Convert(const BoxShadowList& src, String& dest);
 };
 
+template <>
+class TypeConverter<PropertyVariableTerm, PropertyVariableTerm> {
+public:
+	RMLUICORE_API static bool Convert(const PropertyVariableTerm& src, PropertyVariableTerm& dest);
+};
+template <>
+class TypeConverter<PropertyVariableTerm, String> {
+public:
+	RMLUICORE_API static bool Convert(const PropertyVariableTerm& src, String& dest);
+};
+
 } // namespace Rml
 
 #include "TypeConverter.inl"
