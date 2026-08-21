@@ -184,6 +184,17 @@ void RenderInterface_D3D11::BeginFrame()
 	m_device_context->OMSetRenderTargets(1, layer.rtv.GetAddressOf(), m_render_layers->m_layers_dsv.Get());
 	// m_device_context->ClearDepthStencilView(m_depth_stencil_view.Get(), D3D11_CLEAR_STENCIL, 1.0, 0);
 	m_device_context->ClearRenderTargetView(layer.rtv.Get(), clear_color);
+
+	// ease of debug
+	for (auto& rt : m_render_layers->fb_postprocess)
+	{
+		m_device_context->ClearRenderTargetView(rt.rtv.Get(), clear_color);
+	}
+
+	for (auto& rt : m_render_layers->fb_layers)
+	{
+		m_device_context->ClearRenderTargetView(rt.rtv.Get(), clear_color);
+	}
 }
 
 void RenderInterface_D3D11::EndFrame()
@@ -663,6 +674,8 @@ static Rml::Pair<Rml::Vector2f, Rml::Vector2f> CalcTexCoordLimits(Rml::Rectangle
 void RenderInterface_D3D11::CompositeLayers(Rml::LayerHandle source_handle, Rml::LayerHandle destination_handle, Rml::BlendMode blend_mode,
 	Rml::Span<const Rml::CompiledFilterHandle> filters)
 {
+	MARK_EVENT;
+
 	// Blit source layer to postprocessing buffer. Do this regardless of whether we actually have any filters to be
 	// applied, because we need to resolve the multi-sampled framebuffer in any case.
 	// @performance If we have BlendMode::Replace and no filters or mask then we can just blit directly to the destination.
@@ -859,6 +872,8 @@ static void SigmaToParameters(const float desired_sigma, int& out_pass_level, fl
 void RenderInterface_D3D11::BlitRenderTarget(const Texture& source, const Texture& dest, int srcX0, int srcY0, int srcX1, int srcY1, int dstX0,
 	int dstY0, int dstX1, int dstY1)
 {
+	MARK_EVENT;
+
 	int src_width = srcX1 - srcX0;
 	int src_height = srcY1 - srcY0;
 	int dest_width = dstX1 - dstX0;
@@ -928,6 +943,8 @@ void RenderInterface_D3D11::BlitRenderTarget(const Texture& source, const Textur
 
 void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destination, const Texture& temp)
 {
+	MARK_EVENT;
+
 	RMLUI_ASSERT(&source_destination != &temp);
 
 	int pass_level = 0;
@@ -1045,9 +1062,11 @@ void RenderInterface_D3D11::RenderBlur(float sigma, const Texture& source_destin
 	// blitting with linear filtering, pixels outside the 'src' region can be blended into the output. On the other
 	// hand, it looks like Nvidia clamps the pixels to the source edge, which is what we really want. Regardless, we
 	// work around the issue with this extra step.
-	SetScissorRegion(scissor.Extend(1));
+
+	// FIXME: Unlike Direct3D 9, the full extent of the resource view is always cleared. Viewport and scissor settings are not applied.
+	// SetScissorRegion(scissor.Extend(1));
 	m_device_context->ClearRenderTargetView(temp.rtv.Get(), clear_color);
-	SetScissorRegion(scissor);
+	// SetScissorRegion(scissor);
 
 	SetTexelOffset({1.f, 0.f}, m_viewport.x);
 	DrawFullscreenQuad();
@@ -1326,6 +1345,8 @@ Rml::CompiledShaderHandle RenderInterface_D3D11::CompileShader(const Rml::String
 void RenderInterface_D3D11::RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation,
 	Rml::TextureHandle /* texture */)
 {
+	MARK_EVENT;
+
 	RMLUI_ASSERT(shader && geometry);
 	CompiledShader* compiled_shader_ptr = reinterpret_cast<CompiledShader*>(shader);
 	CompiledGeometry* compiled_geometry = reinterpret_cast<CompiledGeometry*>(geometry);

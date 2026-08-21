@@ -62,10 +62,7 @@ public:
 	~D3D11Mark() { End(m_annotation); }
 };
 
-#define MARK_EVENT_NAME(x)                     \
-	{                                          \
-		D3D11Mark mark(m_annotation.Get(), x); \
-	}
+#define MARK_EVENT_NAME(x) D3D11Mark mark(m_annotation.Get(), x);
 
 #define MARK_EVENT MARK_EVENT_NAME(__FUNCTION__)
 

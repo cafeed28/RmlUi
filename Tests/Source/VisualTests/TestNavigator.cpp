@@ -44,7 +44,8 @@
 constexpr int iteration_wait_frame_count = 2;
 
 TestNavigator::TestNavigator(Rml::RenderInterface* render_interface, Rml::Context* context, TestViewer* viewer, TestSuiteList _test_suites,
-	int start_suite, int start_case) : render_interface(render_interface), context(context), viewer(viewer), test_suites(std::move(_test_suites))
+	int start_suite, int start_case, std::atomic<bool>& capture_frame) :
+	render_interface(render_interface), context(context), viewer(viewer), test_suites(std::move(_test_suites)), capture_frame(capture_frame)
 {
 	RMLUI_ASSERT(context);
 	RMLUI_ASSERTMSG(!test_suites.empty(), "At least one test suite is required.");
@@ -199,7 +200,7 @@ void TestNavigator::ProcessEvent(Rml::Event& event)
 		}
 		else if (key_identifier == Rml::Input::KI_R && key_ctrl)
 		{
-			LoadActiveTest(true);
+			LoadActiveTest(true, key_shift);
 		}
 		else if (key_identifier == Rml::Input::KI_S && key_ctrl)
 		{
@@ -389,7 +390,7 @@ void TestNavigator::ProcessEvent(Rml::Event& event)
 	}
 }
 
-void TestNavigator::LoadActiveTest(bool keep_scroll_position)
+void TestNavigator::LoadActiveTest(bool keep_scroll_position, bool capture_frame)
 {
 	const TestSuite& suite = CurrentSuite();
 	viewer->LoadTest(suite.GetDirectory(), suite.GetFilename(), suite.GetIndex(), suite.GetNumTests(), suite.GetFilterIndex(),
@@ -397,6 +398,11 @@ void TestNavigator::LoadActiveTest(bool keep_scroll_position)
 	viewer->ShowSource(source_state);
 	ShowReference(ReferenceState::None);
 	UpdateGoToText();
+
+	if (capture_frame)
+	{
+		this->capture_frame = capture_frame;
+	}
 }
 
 Rml::String TestNavigator::GetImageFilenameFromCurrentTest()

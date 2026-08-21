@@ -62,6 +62,7 @@
 <key>Ctrl+G</key> <value>Go To test (followed by number, enter)</value>
 <key>Ctrl+F</key> <value>Filter tests</value>
 <key>Ctrl+R</key> <value>Reload test</value>
+<key>Ctrl+Shift+R</key> <value>Reload test and capture with RenderDoc (if available)</value>
 <key>Ctrl+S</key> <value>View source of test</value>
 <key>Ctrl+Shift+S</key> <value>View source of reference</value>
 <key>Ctrl+Q</key> <value>Show previous capture of test<br/>(hold Shift to highlight differences)</value>

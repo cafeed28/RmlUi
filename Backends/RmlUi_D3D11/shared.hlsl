@@ -28,6 +28,6 @@ struct VertexInput_Blur {
 };
 
 struct PixelInput_Blur {
-  float4 position : POSITION;
+  float4 position : SV_POSITION;
   float2 tex_coord[BLUR_SIZE] : TEXCOORD0;
 };

@@ -1,7 +1,7 @@
-if(NOT RMLUI_BACKEND MATCHES "GL3$")
-	message(STATUS "Effects sample disabled - only available on GL3 backends")
-	return()
-endif()
+# if(NOT RMLUI_BACKEND MATCHES "GL3$")
+# message(STATUS "Effects sample disabled - only available on GL3 backends")
+# return()
+# endif()
 
 set(SAMPLE_NAME "effects")
 set(TARGET_NAME "${RMLUI_SAMPLE_PREFIX}${SAMPLE_NAME}")

@@ -34,7 +34,7 @@
 namespace Rml {
 
 struct RMLUICORE_API Image {
-	int width = 0;
+	int width = 0; // TODO Vector2i
 	int height = 0;
 	int num_components = 0;
 	Rml::UniquePtr<Rml::byte[]> data;

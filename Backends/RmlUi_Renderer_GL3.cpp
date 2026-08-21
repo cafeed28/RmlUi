@@ -485,6 +485,87 @@ struct FramebufferData {
 
 enum class FramebufferAttachment { None, DepthStencil };
 
+void PrintGLDebugOutput(GLenum source, GLenum type, unsigned int id, GLenum severity, GLsizei length, const char* message, const void* userParam)
+{
+	// ignore non-significant error/warning codes
+	// if (id == 131169 || id == 131185 || id == 131218 || id == 131204)
+	// 	return;
+
+	if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
+		return;
+
+	Rml::Log::Type log_type;
+	const char* log_type_str = nullptr;
+	const char* log_severity_str = nullptr;
+	const char* log_source_str = nullptr;
+
+	switch (type)
+	{
+	case GL_DEBUG_TYPE_ERROR:
+		log_type_str = "Error";
+		log_type = Rml::Log::LT_ERROR;
+		break;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+		log_type_str = "Deprecated Behaviour";
+		log_type = Rml::Log::LT_WARNING;
+		break;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+		log_type_str = "Undefined Behaviour";
+		log_type = Rml::Log::LT_WARNING;
+		break;
+	case GL_DEBUG_TYPE_PORTABILITY:
+		log_type_str = "Portability";
+		log_type = Rml::Log::LT_WARNING;
+		break;
+	case GL_DEBUG_TYPE_PERFORMANCE:
+		log_type_str = "Performance";
+		log_type = Rml::Log::LT_WARNING;
+		break;
+	case GL_DEBUG_TYPE_MARKER:
+		log_type_str = "Marker";
+		log_type = Rml::Log::LT_INFO;
+		break;
+	case GL_DEBUG_TYPE_PUSH_GROUP:
+		log_type_str = "Push Group";
+		log_type = Rml::Log::LT_DEBUG;
+		break;
+	case GL_DEBUG_TYPE_POP_GROUP:
+		log_type_str = "Pop Group";
+		log_type = Rml::Log::LT_DEBUG;
+		break;
+	case GL_DEBUG_TYPE_OTHER:
+		log_type_str = "Other";
+		log_type = Rml::Log::LT_DEBUG;
+		break;
+	default: RMLUI_ASSERT(false); break;
+	}
+
+	switch (severity)
+	{
+	case GL_DEBUG_SEVERITY_HIGH: log_severity_str = "High"; break;
+	case GL_DEBUG_SEVERITY_MEDIUM: log_severity_str = "Medium"; break;
+	case GL_DEBUG_SEVERITY_LOW: log_severity_str = "Low"; break;
+	case GL_DEBUG_SEVERITY_NOTIFICATION: log_severity_str = "Notification"; break;
+	default: RMLUI_ASSERT(false); break;
+	}
+
+	switch (source)
+	{
+	case GL_DEBUG_SOURCE_API: log_source_str = "API"; break;
+	case GL_DEBUG_SOURCE_WINDOW_SYSTEM: log_source_str = "Window System"; break;
+	case GL_DEBUG_SOURCE_SHADER_COMPILER: log_source_str = "Shader Compiler"; break;
+	case GL_DEBUG_SOURCE_THIRD_PARTY: log_source_str = "Third Party"; break;
+	case GL_DEBUG_SOURCE_APPLICATION: log_source_str = "Application"; break;
+	case GL_DEBUG_SOURCE_OTHER: log_source_str = "Other"; break;
+	}
+
+	Rml::Log::Message(log_type, "OpenGL message (%d): %s", //
+		id, message);
+
+	Rml::Log::Message(log_type, "Type: %s, Severity: %s, Source: %s", //
+		log_type_str, log_severity_str, log_source_str);
+}
+
 static void CheckGLError(const char* operation_name)
 {
 #ifdef RMLUI_DEBUG
@@ -801,6 +882,10 @@ static void DestroyShaders(const ProgramData& data)
 
 RenderInterface_GL3::RenderInterface_GL3()
 {
+	glEnable(GL_DEBUG_OUTPUT);
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+	glDebugMessageCallback(Gfx::PrintGLDebugOutput, nullptr);
+
 	auto mut_program_data = Rml::MakeUnique<Gfx::ProgramData>();
 	if (Gfx::CreateShaders(*mut_program_data))
 	{
@@ -2110,6 +2195,8 @@ Rml::LayerHandle RenderInterface_GL3::RenderLayerStack::PushLayer()
 {
 	RMLUI_ASSERT(layers_size <= (int)fb_layers.size());
 
+	char buffer[256] = {0};
+
 	if (layers_size == (int)fb_layers.size())
 	{
 		// All framebuffers should share a single stencil buffer.
@@ -2118,15 +2205,53 @@ Rml::LayerHandle RenderInterface_GL3::RenderLayerStack::PushLayer()
 		fb_layers.push_back(Gfx::FramebufferData{});
 		Gfx::CreateFramebuffer(fb_layers.back(), width, height, RMLUI_NUM_MSAA_SAMPLES, Gfx::FramebufferAttachment::DepthStencil,
 			shared_depth_stencil);
+
+		// GLint max_label_len;
+		// glGetIntegerv(GL_MAX_LABEL_LENGTH, &max_label_len);
+
+		if (fb_layers.back().framebuffer)
+		{
+			snprintf(buffer, sizeof(buffer), "Layer #%d (framebuffer)", layers_size);
+			glObjectLabel(GL_FRAMEBUFFER, fb_layers.back().framebuffer, -1, buffer);
+			Gfx::CheckGLError("glObjectLabel layer fb");
+		}
+
+		if (fb_layers.back().color_render_buffer)
+		{
+			snprintf(buffer, sizeof(buffer), "Layer #%d (render buffer)", layers_size);
+			glObjectLabel(GL_RENDERBUFFER, fb_layers.back().color_render_buffer, -1, buffer);
+			Gfx::CheckGLError("glObjectLabel layer rb");
+		}
+
+		if (fb_layers.back().color_tex_buffer)
+		{
+			snprintf(buffer, sizeof(buffer), "Layer #%d (texture buffer)", layers_size);
+			glObjectLabel(GL_TEXTURE, fb_layers.back().color_tex_buffer, -1, buffer);
+			Gfx::CheckGLError("glObjectLabel layer tb");
+		}
+
+		if (fb_layers.back().depth_stencil_buffer)
+		{
+			snprintf(buffer, sizeof(buffer), "Layer #%d (depth stencil buffer)", layers_size);
+			glObjectLabel(GL_RENDERBUFFER, fb_layers.back().depth_stencil_buffer, -1, buffer);
+			Gfx::CheckGLError("glObjectLabel layer dsb");
+		}
+	}
+
+	{
+		snprintf(buffer, sizeof(buffer), "Layer #%d", layers_size);
+		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, buffer);
 	}
 
 	layers_size += 1;
+
 	return GetTopLayerHandle();
 }
 
 void RenderInterface_GL3::RenderLayerStack::PopLayer()
 {
 	RMLUI_ASSERT(layers_size > 0);
+	glPopDebugGroup();
 	layers_size -= 1;
 }
 
@@ -2191,7 +2316,39 @@ const Gfx::FramebufferData& RenderInterface_GL3::RenderLayerStack::EnsureFramebu
 	RMLUI_ASSERT(index < (int)fb_postprocess.size())
 	Gfx::FramebufferData& fb = fb_postprocess[index];
 	if (!fb.framebuffer)
+	{
 		Gfx::CreateFramebuffer(fb, width, height, 0, Gfx::FramebufferAttachment::None, 0);
+
+		char buffer[256] = {0};
+
+		if (fb.framebuffer)
+		{
+			snprintf(buffer, sizeof(buffer), "PostProcess #%d (framebuffer)", index);
+			glObjectLabel(GL_FRAMEBUFFER, fb.framebuffer, -1, buffer);
+			Gfx::CheckGLError("glObjectLabel pp fb");
+		}
+
+		if (fb.color_render_buffer)
+		{
+			snprintf(buffer, sizeof(buffer), "PostProcess #%d (render buffer)", index);
+			glObjectLabel(GL_RENDERBUFFER, fb.color_render_buffer, -1, buffer);
+			Gfx::CheckGLError("glObjectLabel pp rb");
+		}
+
+		if (fb.color_tex_buffer)
+		{
+			snprintf(buffer, sizeof(buffer), "PostProcess #%d (texture buffer)", index);
+			glObjectLabel(GL_TEXTURE, fb.color_tex_buffer, -1, buffer);
+			Gfx::CheckGLError("glObjectLabel pp tb");
+		}
+
+		if (fb.depth_stencil_buffer)
+		{
+			snprintf(buffer, sizeof(buffer), "PostProcess #%d (depth stencil buffer)", index);
+			glObjectLabel(GL_RENDERBUFFER, fb.depth_stencil_buffer, -1, buffer);
+			Gfx::CheckGLError("glObjectLabel pp dsb");
+		}
+	}
 	return fb;
 }
 

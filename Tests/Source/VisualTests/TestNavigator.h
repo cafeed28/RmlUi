@@ -34,11 +34,12 @@
 #include "TestViewer.h"
 #include <RmlUi/Core/EventListener.h>
 #include <RmlUi/Core/Types.h>
+#include <atomic>
 
 class TestNavigator : public Rml::EventListener {
 public:
 	TestNavigator(Rml::RenderInterface* render_interface, Rml::Context* context, TestViewer* viewer, TestSuiteList test_suites, int start_suite,
-		int start_case);
+		int start_case, std::atomic<bool>& capture_frame);
 	~TestNavigator();
 
 	void Update();
@@ -54,7 +55,7 @@ private:
 
 	TestSuite& CurrentSuite() { return test_suites[suite_index]; }
 
-	void LoadActiveTest(bool keep_scroll_position = false);
+	void LoadActiveTest(bool keep_scroll_position = false, bool capture_frame = false);
 
 	ComparisonResult CompareCurrentView();
 
@@ -75,6 +76,7 @@ private:
 	Rml::Context* context;
 	TestViewer* viewer;
 	TestSuiteList test_suites;
+	std::atomic<bool>& capture_frame;
 
 	Rml::String test_filter;
 

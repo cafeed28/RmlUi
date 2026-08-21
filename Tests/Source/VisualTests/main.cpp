@@ -26,6 +26,7 @@
  *
  */
 
+#include "C:\Program Files\RenderDoc\renderdoc_app.h"
 #include "CaptureScreen.h"
 #include "TestConfig.h"
 #include "TestNavigator.h"
@@ -38,6 +39,7 @@
 #include <PlatformExtensions.h>
 #include <RmlUi_Backend.h>
 #include <Shell.h>
+#include <atomic>
 #include <stdio.h>
 
 #if defined RMLUI_PLATFORM_WIN32
@@ -73,6 +75,20 @@ int main(int argc, char** argv)
 			load_case_index = second_argument - 1;
 			break;
 		}
+	}
+
+	RENDERDOC_API_1_0_0* renderdoc_api = nullptr;
+
+	// At init, on windows
+	if (HMODULE mod = GetModuleHandle(TEXT("renderdoc.dll")))
+	{
+		pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
+		RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_0_0, (void**)&renderdoc_api);
+	}
+
+	if (!renderdoc_api)
+	{
+		Rml::Log::Message(Rml::Log::LT_INFO, "Could not load RenderDoc API, Ctrl+Shift+R hotkey will not be available");
 	}
 
 	int window_width = 1500;
@@ -126,9 +142,12 @@ int main(int argc, char** argv)
 
 		RMLUI_ASSERTMSG(!test_suites.empty(), "RML test files directory not found or empty.");
 
+		std::atomic<bool> capture_frame = {false};
+
 		TestViewer viewer(context);
 
-		TestNavigator navigator(Backend::GetRenderInterface(), context, &viewer, std::move(test_suites), load_suite_index, load_case_index);
+		TestNavigator navigator(Backend::GetRenderInterface(), context, &viewer, std::move(test_suites), load_suite_index, load_case_index,
+			capture_frame);
 
 		bool running = true;
 		while (running)
@@ -137,10 +156,28 @@ int main(int argc, char** argv)
 
 			context->Update();
 
+			if (renderdoc_api && capture_frame)
+			{
+				renderdoc_api->StartFrameCapture(nullptr, nullptr);
+			}
+
 			Backend::BeginFrame();
 			context->Render();
 			navigator.Render();
 			Backend::PresentFrame();
+
+			if (renderdoc_api && capture_frame)
+			{
+				if (renderdoc_api->EndFrameCapture(nullptr, nullptr))
+				{
+					Rml::Log::Message(Rml::Log::LT_INFO, "Captured frame with RenderDoc");
+				}
+				else
+				{
+					Rml::Log::Message(Rml::Log::LT_WARNING, "Failed to capture frame with RenderDoc");
+				}
+				capture_frame = false;
+			}
 
 			navigator.Update();
 		}
